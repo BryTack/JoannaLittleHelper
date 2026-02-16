@@ -22,7 +22,9 @@ npm start                  # Start Office Add-in debugging (Word Desktop)
 npm stop                   # Stop debugging
 ```
 
-No test framework is installed yet. The domain layer is designed to be unit-testable.
+npm test                   # Run Jest tests
+npm test -- --watch        # Watch mode
+npm test -- src/domain/messages.test.ts  # Single test file
 
 ## Architecture
 
@@ -52,10 +54,11 @@ Entry points (bootstrap only, no logic):
 
 ## Build & Config
 
-- **Webpack** bundles two entry points: `taskpane` and `commands` (plus polyfills)
+- **Webpack** bundles two entry points: `taskpane` and `commands`
 - **Babel** transpiles TypeScript (not tsc) with `@babel/preset-typescript`
-- **TypeScript** (`tsconfig.json`): target ES5, lib ES2015+DOM, JSX React, strict source maps
-- **Browser targets**: `last 2 versions, ie 11` — includes core-js polyfills
+- **TypeScript** (`tsconfig.json`): target ES2017, JSX React, strict source maps
+- **Browser targets**: `last 2 versions, not ie 11`
+- **Testing**: Jest with ts-jest; test files co-located as `*.test.ts`
 - **ESLint**: `eslint-plugin-office-addins` with recommended rules
 - **Prettier**: uses `office-addin-prettier-config`
 - **Manifest**: `manifest.xml` at project root, validated via `npm run validate`
