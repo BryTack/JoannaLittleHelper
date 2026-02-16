@@ -1,7 +1,7 @@
-import { buildHelloMessage } from "../domain/messages";
+import { buildGreeting } from "../domain/messages";
 import { insertParagraphAtStart } from "../integrations/word/wordClient";
 
-export async function sayHello(): Promise<void> {
-  const message = buildHelloMessage();
+export async function greet(): Promise<void> {
+  const message = buildGreeting();
   await insertParagraphAtStart(message);
 }

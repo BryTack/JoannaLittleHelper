@@ -1,7 +1,7 @@
-import { buildHelloMessage } from "./messages";
+import { buildGreeting } from "./messages";
 
-describe("buildHelloMessage", () => {
+describe("buildGreeting", () => {
   it("returns a greeting", () => {
-    expect(buildHelloMessage()).toBe("Hello World");
+    expect(buildGreeting()).toBe("Joanna's Little Helper is ready!");
   });
 });

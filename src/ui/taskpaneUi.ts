@@ -1,17 +1,16 @@
-import { sayHello } from "../app/sayHello";
+import { greet } from "../app/sayHello";
 
 export function wireTaskpaneUi(): void {
-  const btn = document.getElementById("say-hello");
+  const btn = document.getElementById("greet");
 
   if (!btn) {
-    // Fail loudly during dev; silent failures are painful.
-    throw new Error("Button with id='say-hello' not found in taskpane.html");
+    throw new Error("Button with id='greet' not found in taskpane.html");
   }
 
   btn.addEventListener("click", async () => {
     btn.setAttribute("disabled", "true");
     try {
-      await sayHello();
+      await greet();
     } finally {
       btn.removeAttribute("disabled");
     }
