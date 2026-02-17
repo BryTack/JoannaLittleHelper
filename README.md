@@ -24,6 +24,10 @@ src/
 - taskpane/        → Office entry point (bootstrapping only)
 - commands/        → Ribbon command entry points
 
+tests/
+- documents/       → .docx fixture files for integration tests
+- *.test.ts        → All test files (unit and integration)
+
 ### Design Principles
 
 - Separation of concerns
