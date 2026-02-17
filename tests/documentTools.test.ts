@@ -5,7 +5,7 @@ import {
   searchText,
   highlightMatches,
   clearHighlights,
-} from "./documentTools";
+} from "../src/integrations/word/documentTools";
 
 // ---------------------------------------------------------------------------
 // Mock helpers – build a fake Word.run context
