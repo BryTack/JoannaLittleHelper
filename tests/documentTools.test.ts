@@ -6,6 +6,8 @@ import {
   highlightMatches,
   clearHighlights,
   retrievePage1,
+  searchPage1,
+  searchDocument,
   PAGE1_LENGTH,
 } from "../src/integrations/word/documentTools";
 
@@ -260,5 +262,60 @@ describe("retrievePage1", () => {
     const result = await retrievePage1();
 
     expect(result).toBe("%%%<<NoName>>%%%\nFallback");
+  });
+});
+
+describe("searchPage1", () => {
+  beforeEach(() => {
+    (globalThis as any).Office = {
+      context: { document: { url: "C:\\Report.docx" } },
+    };
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).Office;
+  });
+
+  it("finds matches within Page1 text", async () => {
+    mockBody.text = "The quick brown fox jumps over the lazy dog";
+    // Page1 = "%%%Report%%%\n" (13 chars) + body text, so indices are offset
+    const prefix = "%%%Report%%%\n";
+
+    const result = await searchPage1("the");
+
+    expect(result).toEqual([
+      { text: "The", index: prefix.length },
+      { text: "the", index: prefix.length + 31 },
+    ]);
+  });
+
+  it("returns empty array when no matches in Page1", async () => {
+    mockBody.text = "Hello world";
+
+    const result = await searchPage1("xyz");
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe("searchDocument", () => {
+  it("finds matches within full document body", async () => {
+    mockBody.text = "one fish two fish red fish";
+
+    const result = await searchDocument("fish");
+
+    expect(result).toEqual([
+      { text: "fish", index: 4 },
+      { text: "fish", index: 13 },
+      { text: "fish", index: 22 },
+    ]);
+  });
+
+  it("returns empty array when no matches", async () => {
+    mockBody.text = "Hello world";
+
+    const result = await searchDocument("xyz");
+
+    expect(result).toEqual([]);
   });
 });

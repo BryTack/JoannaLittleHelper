@@ -5,6 +5,8 @@
  * Pure logic (deciding *what* to find or highlight) belongs in src/domain/.
  */
 
+import { findMatches, TextMatch } from "../../domain/textSearch";
+
 /** Maximum number of characters to include in Page1 content. */
 export const PAGE1_LENGTH = 1200;
 
@@ -122,6 +124,18 @@ export async function retrievePage1(): Promise<string> {
   }
 
   return `%%%${fileName}%%%\n` + bodyText.substring(0, PAGE1_LENGTH);
+}
+
+/** Searches Page1 text for all case-insensitive occurrences of query. */
+export async function searchPage1(query: string): Promise<TextMatch[]> {
+  const page1 = await retrievePage1();
+  return findMatches(page1, query);
+}
+
+/** Searches full document body for all case-insensitive occurrences of query. */
+export async function searchDocument(query: string): Promise<TextMatch[]> {
+  const body = await getBodyText();
+  return findMatches(body, query);
 }
 
 /** Removes highlighting from the entire document body. */
