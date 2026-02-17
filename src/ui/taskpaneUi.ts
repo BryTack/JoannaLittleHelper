@@ -1,4 +1,5 @@
 import { greet } from "../app/sayHello";
+import { refreshPage1 } from "../app/refreshPage1";
 
 export function wireTaskpaneUi(): void {
   const btn = document.getElementById("greet");
@@ -15,4 +16,24 @@ export function wireTaskpaneUi(): void {
       btn.removeAttribute("disabled");
     }
   });
+
+  const page1Display = document.getElementById("page1-display") as HTMLTextAreaElement | null;
+
+  if (!page1Display) {
+    throw new Error("Textarea with id='page1-display' not found in taskpane.html");
+  }
+
+  const updatePage1 = async () => {
+    try {
+      page1Display.value = await refreshPage1();
+    } catch {
+      // silently ignore — document may not be ready yet
+    }
+  };
+
+  // Load Page1 immediately
+  updatePage1();
+
+  // Refresh on document selection changes (proxy for user editing/navigating)
+  Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, updatePage1);
 }

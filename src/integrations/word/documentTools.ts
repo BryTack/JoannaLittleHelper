@@ -5,6 +5,12 @@
  * Pure logic (deciding *what* to find or highlight) belongs in src/domain/.
  */
 
+/** Maximum number of characters to include in Page1 content. */
+export const PAGE1_LENGTH = 1200;
+
+/** Placeholder name used when the document has no user-saved filename. */
+const NO_NAME = "<<NoName>>";
+
 /** Represents a located piece of text within the document. */
 export interface DocumentFragment {
   text: string;
@@ -77,6 +83,45 @@ export async function highlightMatches(query: string, colour = "Yellow"): Promis
     await context.sync();
   });
   return count;
+}
+
+/**
+ * Retrieves "Page1": the document filename (without extension) wrapped in %%% delimiters,
+ * followed by the first PAGE1_LENGTH characters of the document body.
+ * If the filename is unavailable, the %%% section is omitted.
+ */
+export async function retrievePage1(): Promise<string> {
+  let bodyText = "";
+  let fileName = "";
+
+  await Word.run(async (context) => {
+    const body = context.document.body;
+    body.load("text");
+    await context.sync();
+    bodyText = body.text;
+  });
+
+  try {
+    const url = Office.context.document.url;
+    if (url) {
+      const fullName = url.replace(/\\/g, "/").split("/").pop() || "";
+      const nameWithoutExt = fullName.replace(/\.[^.]+$/, "");
+      // Detect unsaved/temp documents: empty name, Word's default "DocumentN", or sideload temp files
+      const isTempName = /^Document\d*$/i.test(nameWithoutExt)
+        || /^Word add-in /i.test(nameWithoutExt);
+      if (!nameWithoutExt || isTempName) {
+        fileName = NO_NAME;
+      } else {
+        fileName = nameWithoutExt;
+      }
+    } else {
+      fileName = NO_NAME;
+    }
+  } catch {
+    fileName = NO_NAME;
+  }
+
+  return `%%%${fileName}%%%\n` + bodyText.substring(0, PAGE1_LENGTH);
 }
 
 /** Removes highlighting from the entire document body. */

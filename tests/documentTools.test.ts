@@ -5,6 +5,8 @@ import {
   searchText,
   highlightMatches,
   clearHighlights,
+  retrievePage1,
+  PAGE1_LENGTH,
 } from "../src/integrations/word/documentTools";
 
 // ---------------------------------------------------------------------------
@@ -182,5 +184,81 @@ describe("clearHighlights", () => {
     mockBody.font.highlightColor = "Yellow";
     await clearHighlights();
     expect(mockBody.font.highlightColor).toBeNull();
+  });
+});
+
+describe("retrievePage1", () => {
+  beforeEach(() => {
+    (globalThis as any).Office = {
+      context: { document: { url: "" } },
+    };
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).Office;
+  });
+
+  it("returns filename in %%% delimiters followed by body text", async () => {
+    (globalThis as any).Office.context.document.url = "C:\\Users\\me\\Documents\\MyReport.docx";
+    mockBody.text = "Hello world";
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%MyReport%%%\nHello world");
+  });
+
+  it("handles forward-slash paths", async () => {
+    (globalThis as any).Office.context.document.url = "/Users/me/Documents/Essay.docx";
+    mockBody.text = "Some content";
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%Essay%%%\nSome content");
+  });
+
+  it("returns <<NoName>> when URL is empty", async () => {
+    (globalThis as any).Office.context.document.url = "";
+    mockBody.text = "Body only";
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%<<NoName>>%%%\nBody only");
+  });
+
+  it("returns <<NoName>> for sideload temp file", async () => {
+    (globalThis as any).Office.context.document.url =
+      "C:\\Users\\user\\AppData\\Local\\Temp\\Word add-in ed692234-5b56-43cd-a819-09b66a4c462b.docx";
+    mockBody.text = "Sideloaded";
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%<<NoName>>%%%\nSideloaded");
+  });
+
+  it("returns <<NoName>> for unsaved Document1", async () => {
+    (globalThis as any).Office.context.document.url = "Document1.docx";
+    mockBody.text = "Unsaved content";
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%<<NoName>>%%%\nUnsaved content");
+  });
+
+  it("truncates body text to PAGE1_LENGTH characters", async () => {
+    (globalThis as any).Office.context.document.url = "C:\\Doc.docx";
+    mockBody.text = "A".repeat(2000);
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%Doc%%%\n" + "A".repeat(PAGE1_LENGTH));
+  });
+
+  it("returns <<NoName>> when Office.context throws", async () => {
+    delete (globalThis as any).Office;
+    mockBody.text = "Fallback";
+
+    const result = await retrievePage1();
+
+    expect(result).toBe("%%%<<NoName>>%%%\nFallback");
   });
 });
