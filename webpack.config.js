@@ -24,12 +24,12 @@ module.exports = async (env, options) => {
       clean: true,
     },
     resolve: {
-      extensions: [".ts", ".html", ".js"],
+      extensions: [".tsx", ".ts", ".jsx", ".js", ".html"],
     },
     module: {
       rules: [
         {
-          test: /\.ts$/,
+          test: /\.[jt]sx?$/,
           exclude: /node_modules/,
           use: {
             loader: "babel-loader"
