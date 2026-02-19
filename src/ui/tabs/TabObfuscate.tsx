@@ -12,9 +12,11 @@ const DEBOUNCE_MS = 3000;
 
 export function TabObfuscate(): React.ReactElement {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [isPending, setIsPending] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
 
   const runAnonymize = useCallback(() => {
+    setIsPending(false);
     // Cancel any in-flight request
     if (cancelRef.current) cancelRef.current();
     let cancelled = false;
@@ -66,9 +68,11 @@ export function TabObfuscate(): React.ReactElement {
       if (currentUrl !== lastUrl) {
         // Different document loaded — re-anonymize immediately
         lastUrl = currentUrl;
+        setIsPending(false);
         runAnonymize();
       } else {
-        // Same document edited — wait for typing to stop
+        // Same document edited — signal pending and wait for typing to stop
+        setIsPending(true);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
           runAnonymize();
@@ -119,7 +123,7 @@ export function TabObfuscate(): React.ReactElement {
             fontFamily: "Segoe UI, sans-serif",
             lineHeight: "1.5",
             color: "#333",
-            backgroundColor: "#fafafa",
+            backgroundColor: isPending ? "#fff0f0" : "#fafafa",
             width: "100%",
             boxSizing: "border-box",
           }}
