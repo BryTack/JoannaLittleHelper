@@ -17,6 +17,16 @@ if %errorlevel% == 0 (
     echo [OK] Presidio started ^(new window^)
 )
 
+:: --- AI proxy server (port 3003) ---
+netstat -ano | findstr ":3003 " | findstr "LISTENING" >nul 2>&1
+if %errorlevel% == 0 (
+    echo [OK] AI server already running on port 3003
+) else (
+    echo [..] Starting AI server...
+    start "JLH - AI Server" cmd /k "node --env-file=.env server\aiServer.js"
+    echo [OK] AI server started ^(new window^)
+)
+
 :: --- Dev server (port 3000) ---
 netstat -ano | findstr ":3000 " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% == 0 (
