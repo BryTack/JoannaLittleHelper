@@ -154,17 +154,6 @@ export function TabObfuscate(): React.ReactElement {
         backgroundColor: pendingBg,
         overflow: "hidden",
       }}>
-        <div style={{
-          fontSize: "11px",
-          fontWeight: 600,
-          color: "#555",
-          padding: "4px 8px",
-          borderBottom: `1px solid ${pendingBorder}`,
-          flexShrink: 0,
-        }}>
-          Obfuscation map
-        </div>
-
         <div style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
           {state.status === "done" && uniqueEntities(state.entities).length === 0 && (
             <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>

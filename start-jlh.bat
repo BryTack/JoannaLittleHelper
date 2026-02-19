@@ -37,9 +37,3 @@ if %errorlevel% == 0 (
     echo [OK] Word launching ^(new window^)
 )
 
-echo.
-echo ==============================================
-echo   All done. You can close this window.
-echo ==============================================
-echo.
-pause
