@@ -8,7 +8,6 @@ import {
   Tooltip,
 } from "@fluentui/react-components";
 import { Settings20Regular } from "@fluentui/react-icons";
-import { ResizeGuard } from "./ResizeGuard";
 import { TabDocType } from "./tabs/TabDocType";
 import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabClaude } from "./tabs/TabClaude";
@@ -19,6 +18,7 @@ type TabId = "doctype" | "config" | "obfuscate" | "claude";
 export function App(): React.ReactElement {
   const [configVisible, setConfigVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("doctype");
+
 
   const renderTab = () => {
     switch (activeTab) {
@@ -31,7 +31,6 @@ export function App(): React.ReactElement {
 
   return (
     <FluentProvider theme={webLightTheme} style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      <ResizeGuard>
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -68,7 +67,6 @@ export function App(): React.ReactElement {
         <div style={{ flex: 1, overflow: "auto" }}>
           {renderTab()}
         </div>
-      </ResizeGuard>
     </FluentProvider>
   );
 }

@@ -6,7 +6,13 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(npm run build:*)",
-      "Bash(git -C /d/Projects/JoannaLittleHelper status)"
+      "Bash(git -C /d/Projects/JoannaLittleHelper status)",
+      "Bash(npm test:*)",
+      "Bash(ls:*)",
+      "Bash(npm run validate:*)",
+      "WebSearch",
+      "WebFetch(domain:support.microsoft.com)",
+      "Bash(git -C \"D:/Projects/JoannaLittleHelper\" log --oneline)"
     ]
   }
 }
