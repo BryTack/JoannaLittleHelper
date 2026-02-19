@@ -4,3 +4,4 @@ dist/
 .env.local
 localhost.crt
 localhost.key
+server/presidio-venv/
