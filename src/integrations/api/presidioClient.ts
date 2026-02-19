@@ -1,13 +1,15 @@
 const PRESIDIO_URL = "http://localhost:3002";
 
+export interface EntityInfo {
+  type: string;
+  original: string;
+  label: string;
+  score: number;
+}
+
 export interface AnonymizeResult {
   text: string;
-  entities: Array<{
-    type: string;
-    start: number;
-    end: number;
-    score: number;
-  }>;
+  entities: EntityInfo[];
 }
 
 /** Sends text to the local Presidio service and returns the anonymised version. */

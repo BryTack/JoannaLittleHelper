@@ -1,14 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Spinner } from "@fluentui/react-components";
 import { getBodyText } from "../../integrations/word/documentTools";
-import { anonymize } from "../../integrations/api/presidioClient";
+import { anonymize, EntityInfo } from "../../integrations/api/presidioClient";
 
 type State =
   | { status: "loading" }
-  | { status: "done"; text: string }
+  | { status: "done"; text: string; entities: EntityInfo[] }
   | { status: "error"; message: string };
 
 const DEBOUNCE_MS = 3000;
+
+/** Deduplicate entities by label for display — one row per distinct replacement. */
+function uniqueEntities(entities: EntityInfo[]): EntityInfo[] {
+  const seen = new Map<string, EntityInfo>();
+  for (const e of entities) {
+    if (!seen.has(e.label)) seen.set(e.label, e);
+  }
+  return Array.from(seen.values());
+}
 
 export function TabObfuscate(): React.ReactElement {
   const [state, setState] = useState<State>({ status: "loading" });
@@ -17,7 +26,6 @@ export function TabObfuscate(): React.ReactElement {
 
   const runAnonymize = useCallback(() => {
     setIsPending(false);
-    // Cancel any in-flight request
     if (cancelRef.current) cancelRef.current();
     let cancelled = false;
     cancelRef.current = () => { cancelled = true; };
@@ -28,7 +36,7 @@ export function TabObfuscate(): React.ReactElement {
       try {
         const bodyText = await getBodyText();
         const result = await anonymize(bodyText);
-        if (!cancelled) setState({ status: "done", text: result.text });
+        if (!cancelled) setState({ status: "done", text: result.text, entities: result.entities });
       } catch (err) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -66,12 +74,10 @@ export function TabObfuscate(): React.ReactElement {
       }
 
       if (currentUrl !== lastUrl) {
-        // Different document loaded — re-anonymize immediately
         lastUrl = currentUrl;
         setIsPending(false);
         runAnonymize();
       } else {
-        // Same document edited — signal pending and wait for typing to stop
         setIsPending(true);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
@@ -94,41 +100,101 @@ export function TabObfuscate(): React.ReactElement {
     };
   }, [runAnonymize]);
 
+  const pendingBg = isPending ? "#fff0f0" : "#fafafa";
+  const pendingBorder = isPending ? "#f0c0c0" : "#d0d0d0";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", boxSizing: "border-box" }}>
-      {state.status === "loading" && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
-          <Spinner size="tiny" />
-          <span style={{ fontSize: "12px", color: "#666" }}>Analysing document...</span>
-        </div>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "6px", boxSizing: "border-box" }}>
 
-      {state.status === "error" && (
-        <div style={{ fontSize: "12px", color: "#a00", lineHeight: "1.5" }}>
-          {state.message}
-        </div>
-      )}
+      {/* Top 70% — anonymised text */}
+      <div style={{ flex: 7, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {state.status === "loading" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
+            <Spinner size="tiny" />
+            <span style={{ fontSize: "12px", color: "#666" }}>Analysing document...</span>
+          </div>
+        )}
 
-      {state.status === "done" && (
-        <textarea
-          readOnly
-          value={state.text || "(Document is empty)"}
-          style={{
-            flex: 1,
-            resize: "none",
-            border: "1px solid #d0d0d0",
-            borderRadius: "4px",
-            padding: "8px",
-            fontSize: "12px",
-            fontFamily: "Segoe UI, sans-serif",
-            lineHeight: "1.5",
-            color: "#333",
-            backgroundColor: isPending ? "#fff0f0" : "#fafafa",
-            width: "100%",
-            boxSizing: "border-box",
-          }}
-        />
-      )}
+        {state.status === "error" && (
+          <div style={{ fontSize: "12px", color: "#a00", lineHeight: "1.5" }}>
+            {state.message}
+          </div>
+        )}
+
+        {state.status === "done" && (
+          <textarea
+            readOnly
+            value={state.text || "(Document is empty)"}
+            style={{
+              flex: 1,
+              resize: "none",
+              border: `1px solid ${pendingBorder}`,
+              borderRadius: "4px",
+              padding: "8px",
+              fontSize: "12px",
+              fontFamily: "Segoe UI, sans-serif",
+              lineHeight: "1.5",
+              color: "#333",
+              backgroundColor: pendingBg,
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
+        )}
+      </div>
+
+      {/* Bottom 30% — obfuscation details */}
+      <div style={{
+        flex: 3,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        border: `1px solid ${pendingBorder}`,
+        borderRadius: "4px",
+        backgroundColor: pendingBg,
+        overflow: "hidden",
+      }}>
+        <div style={{
+          fontSize: "11px",
+          fontWeight: 600,
+          color: "#555",
+          padding: "4px 8px",
+          borderBottom: `1px solid ${pendingBorder}`,
+          flexShrink: 0,
+        }}>
+          Obfuscation map
+        </div>
+
+        <div style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
+          {state.status === "done" && uniqueEntities(state.entities).length === 0 && (
+            <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
+              No PII detected
+            </div>
+          )}
+
+          {state.status === "done" && uniqueEntities(state.entities).map((e) => (
+            <div key={e.label} style={{
+              display: "flex",
+              gap: "8px",
+              padding: "2px 8px",
+              fontSize: "11px",
+              fontFamily: "Segoe UI, sans-serif",
+              lineHeight: "1.6",
+            }}>
+              <span style={{ color: "#b00", fontWeight: 600, minWidth: "110px", flexShrink: 0 }}>
+                {e.label}
+              </span>
+              <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {e.original}
+              </span>
+              <span style={{ color: "#999", flexShrink: 0 }}>
+                {Math.round(e.score * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }

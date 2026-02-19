@@ -25,6 +25,60 @@ anonymizer = AnonymizerEngine()
 print(f"[Presidio] Ready on http://localhost:{PORT}", flush=True)
 
 
+def _remove_overlaps(results):
+    """Remove overlapping entities, keeping the highest-confidence match per region."""
+    sorted_r = sorted(results, key=lambda x: (-x.score, -(x.end - x.start)))
+    kept = []
+    covered = []
+    for r in sorted_r:
+        if not any(r.start < end and r.end > start for start, end in covered):
+            kept.append(r)
+            covered.append((r.start, r.end))
+    return kept
+
+
+def _anonymize_consistent(text, results):
+    """
+    Replace detected entities with consistent numbered labels per type.
+
+    The same source text always gets the same label within a request:
+      John Smith -> <PERSON_1>, Jane Doe -> <PERSON_2>, John Smith -> <PERSON_1>
+
+    Returns (anonymised_text, entities) where entities is a list of
+    {type, original, label, score} — one entry per occurrence, in document order.
+    The label_map is discarded after the request; the output cannot be reversed.
+    """
+    clean = _remove_overlaps(results)
+    clean_sorted = sorted(clean, key=lambda x: x.start)
+
+    counters = {}   # entity_type -> int
+    label_map = {}  # (entity_type, original_lower) -> label
+
+    entity_info = []
+
+    for r in clean_sorted:
+        original = text[r.start:r.end]
+        key = (r.entity_type, original.lower().strip())
+        if key not in label_map:
+            counters[r.entity_type] = counters.get(r.entity_type, 0) + 1
+            label_map[key] = f"<{r.entity_type}_{counters[r.entity_type]}>"
+        entity_info.append({
+            "type": r.entity_type,
+            "original": original,
+            "label": label_map[key],
+            "score": round(r.score, 3),
+        })
+
+    # Replace from right to left so earlier offsets stay valid
+    anonymised = text
+    for r in sorted(clean, key=lambda x: x.start, reverse=True):
+        original = text[r.start:r.end]
+        key = (r.entity_type, original.lower().strip())
+        anonymised = anonymised[:r.start] + label_map[key] + anonymised[r.end:]
+
+    return anonymised, entity_info
+
+
 class Handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
@@ -46,21 +100,9 @@ class Handler(BaseHTTPRequestHandler):
             language = body.get("language", "en")
 
             results = analyzer.analyze(text=text, language=language)
-            anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
+            anonymised_text, entities = _anonymize_consistent(text, results)
 
-            response = {
-                "text": anonymized.text,
-                "entities": [
-                    {
-                        "type": r.entity_type,
-                        "start": r.start,
-                        "end": r.end,
-                        "score": round(r.score, 3),
-                    }
-                    for r in sorted(results, key=lambda x: x.start)
-                ],
-            }
-            self._send_json(200, response)
+            self._send_json(200, {"text": anonymised_text, "entities": entities})
 
         except Exception as e:
             self._send_json(500, {"error": str(e)})
