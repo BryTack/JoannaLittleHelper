@@ -93,9 +93,9 @@ export function App(): React.ReactElement {
           style={{ padding: "0 4px" }}
         >
           <Tab value="doctype">Doc Type</Tab>
-          {configVisible && <Tab value="config">Config</Tab>}
           <Tab value="obfuscate">Obfuscate</Tab>
           <Tab value="ai">AI</Tab>
+          {configVisible && <Tab value="config">Config</Tab>}
         </TabList>
 
         <div style={{ flex: 1, overflow: "auto" }}>
