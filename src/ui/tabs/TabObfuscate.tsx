@@ -9,6 +9,10 @@ type State =
   | { status: "error"; message: string };
 
 const DEBOUNCE_MS = 3000;
+const MIN_PCT = 5;
+const MAX_PCT = 95;
+const DIVIDER_H = 8;
+const PADDING = 8;
 
 /** Deduplicate entities by label for display — one row per distinct replacement. */
 function uniqueEntities(entities: EntityInfo[]): EntityInfo[] {
@@ -19,10 +23,55 @@ function uniqueEntities(entities: EntityInfo[]): EntityInfo[] {
   return Array.from(seen.values());
 }
 
+/** Navigate Word to the paragraph at the given index (scrolls Word's viewport). */
+async function scrollWordToParagraph(idx: number): Promise<void> {
+  try {
+    await Word.run(async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("text");
+      await context.sync();
+      const safeIdx = Math.min(Math.max(idx, 0), paragraphs.items.length - 1);
+      paragraphs.items[safeIdx].select(Word.SelectionMode.Select);
+      await context.sync();
+    });
+  } catch {
+    // Ignore — document may be busy or unavailable
+  }
+}
+
+/**
+ * Given the obfuscated paragraphs and the textarea's scroll state,
+ * return the index of the paragraph whose text is at the top of the viewport.
+ * Uses character-offset accumulation so paragraph-level alignment is exact
+ * even when entity substitution changes individual paragraph lengths.
+ */
+function visibleParagraphIndex(
+  paras: string[],
+  scrollTop: number,
+  scrollHeight: number,
+  clientHeight: number,
+): number {
+  if (paras.length === 0) return 0;
+  const fraction = scrollTop / Math.max(scrollHeight - clientHeight, 1);
+  const totalChars = paras.reduce((sum, p) => sum + p.length + 1, 0); // +1 for newline
+  const targetChar = totalChars * fraction;
+  let cumulative = 0;
+  for (let i = 0; i < paras.length; i++) {
+    cumulative += paras[i].length + 1;
+    if (cumulative > targetChar) return i;
+  }
+  return paras.length - 1;
+}
+
 export function TabObfuscate(): React.ReactElement {
   const [state, setState] = useState<State>({ status: "loading" });
   const [isPending, setIsPending] = useState(false);
+  const [splitPct, setSplitPct] = useState(70);
+  const containerRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
+  const obfuscatedParasRef = useRef<string[]>([]);
+  const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isOurScrollRef = useRef(false);
 
   const runAnonymize = useCallback(() => {
     setIsPending(false);
@@ -36,7 +85,10 @@ export function TabObfuscate(): React.ReactElement {
       try {
         const bodyText = await getBodyText();
         const result = await anonymize(bodyText);
-        if (!cancelled) setState({ status: "done", text: result.text, entities: result.entities });
+        if (!cancelled) {
+          obfuscatedParasRef.current = result.text.split(/\r\n|\r|\n/);
+          setState({ status: "done", text: result.text, entities: result.entities });
+        }
       } catch (err) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -66,6 +118,7 @@ export function TabObfuscate(): React.ReactElement {
     let lastUrl = Office.context.document.url;
 
     function handleChange() {
+      if (isOurScrollRef.current) return;
       const currentUrl = Office.context.document.url;
 
       if (debounceTimer) {
@@ -100,14 +153,64 @@ export function TabObfuscate(): React.ReactElement {
     };
   }, [runAnonymize]);
 
-  const pendingBg = isPending ? "#fff0f0" : "#fafafa";
+  function handleTextareaScroll(e: React.UIEvent<HTMLTextAreaElement>) {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+    scrollDebounceRef.current = setTimeout(() => {
+      const idx = visibleParagraphIndex(
+        obfuscatedParasRef.current,
+        scrollTop,
+        scrollHeight,
+        clientHeight,
+      );
+      isOurScrollRef.current = true;
+      scrollWordToParagraph(idx).finally(() => {
+        setTimeout(() => { isOurScrollRef.current = false; }, 500);
+      });
+    }, 150);
+  }
+
+  function onDividerMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+
+    function onMouseMove(ev: MouseEvent) {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const effectiveTop    = rect.top + PADDING;
+      const effectiveHeight = rect.height - PADDING * 2;
+      const pct = ((ev.clientY - effectiveTop) / effectiveHeight) * 100;
+      setSplitPct(Math.min(MAX_PCT, Math.max(MIN_PCT, pct)));
+    }
+
+    function onMouseUp() {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  const pendingBg     = isPending ? "#fff0f0" : "#fafafa";
   const pendingBorder = isPending ? "#f0c0c0" : "#d0d0d0";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "6px", boxSizing: "border-box" }}>
-
-      {/* Top 70% — anonymised text */}
-      <div style={{ flex: 7, display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div
+      ref={containerRef}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        padding: `${PADDING}px`,
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Top pane — anonymised text */}
+      <div style={{ flex: `0 0 ${splitPct}%`, minHeight: 0, display: "flex", flexDirection: "column" }}>
         {state.status === "loading" && (
           <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
             <Spinner size="tiny" />
@@ -125,6 +228,7 @@ export function TabObfuscate(): React.ReactElement {
           <textarea
             readOnly
             value={state.text || "(Document is empty)"}
+            onScroll={handleTextareaScroll}
             style={{
               flex: 1,
               resize: "none",
@@ -143,18 +247,33 @@ export function TabObfuscate(): React.ReactElement {
         )}
       </div>
 
-      {/* Bottom 30% — obfuscation details */}
+      {/* Draggable divider */}
+      <div
+        onMouseDown={onDividerMouseDown}
+        style={{
+          height: `${DIVIDER_H}px`,
+          flexShrink: 0,
+          cursor: "ns-resize",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#ebebeb",
+          userSelect: "none",
+        }}
+      >
+        <div style={{ width: "32px", height: "2px", background: "#b0b0b0", borderRadius: "1px" }} />
+      </div>
+
+      {/* Bottom pane — obfuscation details */}
       <div style={{
-        flex: 3,
-        display: "flex",
-        flexDirection: "column",
+        flex: 1,
         minHeight: 0,
         border: `1px solid ${pendingBorder}`,
         borderRadius: "4px",
         backgroundColor: pendingBg,
         overflow: "hidden",
       }}>
-        <div style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
+        <div style={{ height: "100%", overflow: "auto", padding: "4px 0" }}>
           {state.status === "done" && uniqueEntities(state.entities).length === 0 && (
             <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
               No PII detected
