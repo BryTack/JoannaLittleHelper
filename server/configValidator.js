@@ -198,13 +198,15 @@ async function validate() {
     }
 
     // Optional fields — ensure tag present, no message
-    if (profile.description === undefined) {
-      profile.description = "";
-      dirty = true;
+    for (const field of ["description", "context"]) {
+      if (profile[field] === undefined) {
+        profile[field] = "";
+        dirty = true;
+      }
     }
 
     // Required fields
-    for (const field of ["context", "ai"]) {
+    for (const field of ["ai"]) {
       if (profile[field] === undefined) {
         profile[field] = "";
         dirty = true;
