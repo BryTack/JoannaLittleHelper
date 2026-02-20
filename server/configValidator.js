@@ -11,9 +11,23 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { execSync } = require("child_process");
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
 
-const CONFIG_DIR = path.join(os.homedir(), "Documents", "JLH");
+// Use the Windows known-folder API so we land in the right Documents
+// even when OneDrive has redirected the folder.
+function getDocumentsPath() {
+  try {
+    return execSync(
+      'powershell -NoProfile -Command "[Environment]::GetFolderPath(\'MyDocuments\')"',
+      { encoding: "utf8" }
+    ).trim();
+  } catch {
+    return path.join(os.homedir(), "Documents");
+  }
+}
+
+const CONFIG_DIR = path.join(getDocumentsPath(), "JLH");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.xml");
 
 const PARSER_OPTIONS = {
