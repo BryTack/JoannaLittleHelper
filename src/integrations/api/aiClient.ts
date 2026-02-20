@@ -12,11 +12,11 @@ export async function fetchAvailableAIs(): Promise<AiOption[]> {
   return data.ais;
 }
 
-export async function sendMessage(prompt: string, aiName: string): Promise<string> {
+export async function sendMessage(prompt: string, aiName: string, context?: string): Promise<string> {
   const res = await fetch(`${AI_SERVER}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, aiName }),
+    body: JSON.stringify({ prompt, aiName, context }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error: string };

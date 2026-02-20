@@ -17,7 +17,7 @@ const ALLOWED_ORIGIN = "https://localhost:3000";
 // Add new patterns here — no other code changes needed.
 
 const PATTERNS = {
-  "anthropic-messages": async (url, model, apiKey, prompt) => {
+  "anthropic-messages": async (url, model, apiKey, prompt, systemPrompt) => {
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -28,6 +28,7 @@ const PATTERNS = {
       body: JSON.stringify({
         model,
         max_tokens: 1024,
+        ...(systemPrompt ? { system: systemPrompt } : {}),
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -36,29 +37,31 @@ const PATTERNS = {
     return data.content[0].text;
   },
 
-  "openai-compatible": async (url, model, apiKey, prompt) => {
+  "openai-compatible": async (url, model, apiKey, prompt, systemPrompt) => {
+    const messages = [
+      ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
+      { role: "user", content: prompt },
+    ];
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-      }),
+      body: JSON.stringify({ model, messages }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
     return data.choices[0].message.content;
   },
 
-  "gemini-generate": async (url, _model, apiKey, prompt) => {
+  "gemini-generate": async (url, _model, apiKey, prompt, systemPrompt) => {
     const fullUrl = apiKey ? `${url}?key=${apiKey}` : url;
     const res = await fetch(fullUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
         contents: [{ parts: [{ text: prompt }] }],
       }),
     });
@@ -120,7 +123,7 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", async () => {
       try {
-        const { prompt, aiName } = JSON.parse(body);
+        const { prompt, aiName, context } = JSON.parse(body);
 
         const ais = readConfig();
         if (!ais) {
@@ -146,7 +149,7 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const text = await adapter(ai.url, ai.model, apiKey, prompt);
+        const text = await adapter(ai.url, ai.model, apiKey, prompt, context || "");
         sendJson(res, 200, { text });
       } catch (err) {
         sendJson(res, 500, { error: err.message });

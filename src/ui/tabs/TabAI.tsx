@@ -11,11 +11,11 @@ type SendState =
 
 const TEST_PROMPT = "what is the last letter of the alphabet";
 
-interface TabClaudeProps {
+interface TabAIProps {
   selectedProfile: Profile | undefined;
 }
 
-export function TabClaude({ selectedProfile }: TabClaudeProps): React.ReactElement {
+export function TabAI({ selectedProfile }: TabAIProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
 
@@ -28,7 +28,7 @@ export function TabClaude({ selectedProfile }: TabClaudeProps): React.ReactEleme
     if (!prompt.trim() || !aiName) return;
     setSendState({ status: "loading" });
     try {
-      const text = await sendMessage(prompt.trim(), aiName);
+      const text = await sendMessage(prompt.trim(), aiName, selectedProfile?.context);
       setSendState({ status: "done", text });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -51,6 +51,32 @@ export function TabClaude({ selectedProfile }: TabClaudeProps): React.ReactEleme
       <Text size={200} style={{ color: "#605e5c" }}>
         {aiLabel ? `AI: ${aiLabel}` : "No profile selected — choose one on the Home tab"}
       </Text>
+
+      {/* Context (collapsed by default) */}
+      <details style={{ fontSize: "12px" }}>
+        <summary style={{ cursor: "pointer", color: "#605e5c", userSelect: "none" }}>
+          Context
+        </summary>
+        <textarea
+          readOnly
+          value={selectedProfile?.context || "(no context set for this profile)"}
+          rows={5}
+          style={{
+            marginTop: "4px",
+            width: "100%",
+            resize: "vertical",
+            border: "1px solid #d0d0d0",
+            borderRadius: "4px",
+            padding: "8px",
+            fontSize: "12px",
+            fontFamily: "Segoe UI, sans-serif",
+            lineHeight: "1.5",
+            color: "#333",
+            backgroundColor: "#fafafa",
+            boxSizing: "border-box",
+          }}
+        />
+      </details>
 
       {/* Prompt input */}
       <textarea

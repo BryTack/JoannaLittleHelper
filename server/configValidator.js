@@ -270,6 +270,7 @@ function readProfiles() {
       return {
         name: p["@_Name"] || "",
         description: p.description || "",
+        context: p.context || "",
         ai: aiName,
         aiVersion: aiEntry?.version || "",
         aiGoodFor: aiEntry?.good_for || "",

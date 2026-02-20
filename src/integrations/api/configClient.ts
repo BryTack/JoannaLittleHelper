@@ -3,6 +3,7 @@ const AI_SERVER = "http://localhost:3003";
 export interface Profile {
   name: string;
   description: string;
+  context: string;
   ai: string;
   aiVersion: string;
   aiGoodFor: string;

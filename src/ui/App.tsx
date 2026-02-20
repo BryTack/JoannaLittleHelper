@@ -10,7 +10,7 @@ import {
 import { Settings20Regular } from "@fluentui/react-icons";
 import { TabHome } from "./tabs/TabHome";
 import { TabObfuscate } from "./tabs/TabObfuscate";
-import { TabClaude } from "./tabs/TabClaude";
+import { TabAI } from "./tabs/TabAI";
 import { TabConfig } from "./tabs/TabConfig";
 import { fetchConfigValidation, ConfigState, fetchProfiles, Profile } from "../integrations/api/configClient";
 
@@ -66,7 +66,7 @@ export function App(): React.ReactElement {
       );
       case "config":    return <TabConfig configState={configState} onRevalidate={runValidation} />;
       case "obfuscate": return <TabObfuscate />;
-      case "ai":        return <TabClaude selectedProfile={selectedProfile} />;
+      case "ai":        return <TabAI selectedProfile={selectedProfile} />;
     }
   };
 
