@@ -186,8 +186,6 @@ export async function getDocumentSummary(): Promise<DocumentSummary> {
     props.load("title,subject,author,keywords,comments,category,creationDate,lastSaveTime,lastPrintDate");
     const body = context.document.body;
     body.load("text");
-    const paragraphs = body.paragraphs;
-    paragraphs.load("text");
     await context.sync();
 
     summary.title       = props.title    || "";
@@ -209,7 +207,9 @@ export async function getDocumentSummary(): Promise<DocumentSummary> {
     const text = body.text;
     summary.wordCount      = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
     summary.charCount      = text.length;
-    summary.paragraphCount = paragraphs.items.length;
+    // Paragraph count derived from \r separators in body.text (Word's native separator),
+    // avoiding an extra paragraphs.load() round-trip.
+    summary.paragraphCount = text ? text.split("\r").length : 0;
   });
 
   try {

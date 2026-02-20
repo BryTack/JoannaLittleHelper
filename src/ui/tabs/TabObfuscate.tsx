@@ -23,6 +23,54 @@ function uniqueEntities(entities: EntityInfo[]): EntityInfo[] {
   return Array.from(seen.values());
 }
 
+/**
+ * Returns the exact pixel offset of the character at `position` within a
+ * textarea, accounting for word-wrap. Creates a hidden mirror div that
+ * matches the textarea's layout, measures a marker span inserted at the
+ * position, then removes the mirror.
+ */
+function getPixelOffsetInTextarea(ta: HTMLTextAreaElement, position: number): number {
+  const cs = getComputedStyle(ta);
+  const mirror = document.createElement("div");
+  mirror.style.cssText = [
+    "position:absolute", "top:-9999px", "left:-9999px", "visibility:hidden",
+    `width:${ta.clientWidth}px`,
+    `font-size:${cs.fontSize}`,
+    `font-family:${cs.fontFamily}`,
+    `font-weight:${cs.fontWeight}`,
+    `line-height:${cs.lineHeight}`,
+    `padding:${cs.padding}`,
+    `border:${cs.border}`,
+    `box-sizing:${cs.boxSizing}`,
+    "white-space:pre-wrap",
+    "word-wrap:break-word",
+    "overflow-wrap:break-word",
+  ].join(";");
+  // Text before the target position
+  mirror.textContent = ta.value.substring(0, position);
+  // Marker at the exact position
+  const marker = document.createElement("span");
+  marker.textContent = "|";
+  mirror.appendChild(marker);
+  document.body.appendChild(mirror);
+  const offset = marker.offsetTop;
+  document.body.removeChild(mirror);
+  return offset;
+}
+
+/** Return the start/end positions of every occurrence of label in text. */
+function findOccurrences(text: string, label: string): Array<{ start: number; end: number }> {
+  const results: Array<{ start: number; end: number }> = [];
+  let idx = 0;
+  while (idx < text.length) {
+    const pos = text.indexOf(label, idx);
+    if (pos === -1) break;
+    results.push({ start: pos, end: pos + label.length });
+    idx = pos + 1;
+  }
+  return results;
+}
+
 /** Navigate Word to the paragraph at the given index (scrolls Word's viewport). */
 async function scrollWordToParagraph(idx: number): Promise<void> {
   try {
@@ -72,9 +120,13 @@ export function TabObfuscate(): React.ReactElement {
   const obfuscatedParasRef = useRef<string[]>([]);
   const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOurScrollRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const occurrenceIdxRef = useRef<Record<string, number>>({});
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
 
   const runAnonymize = useCallback(() => {
     setIsPending(false);
+    occurrenceIdxRef.current = {};
     if (cancelRef.current) cancelRef.current();
     let cancelled = false;
     cancelRef.current = () => { cancelled = true; };
@@ -153,6 +205,27 @@ export function TabObfuscate(): React.ReactElement {
     };
   }, [runAnonymize]);
 
+  function handleEntityClick(label: string) {
+    if (state.status !== "done" || !textareaRef.current) return;
+    const ta = textareaRef.current;
+    // Search ta.value (browser-normalised to \n) so that offsets, line counting,
+    // and setSelectionRange all use the same string — avoids \r\n vs \n mismatch
+    // between state.text (raw from Word) and the DOM-normalised textarea value.
+    const taText = ta.value;
+    const occurrences = findOccurrences(taText, label);
+    if (occurrences.length === 0) return;
+    const idx = (occurrenceIdxRef.current[label] ?? 0) % occurrences.length;
+    occurrenceIdxRef.current[label] = (idx + 1) % occurrences.length;
+    const { start, end } = occurrences[idx];
+    ta.focus();
+    ta.setSelectionRange(start, end);
+    // setSelectionRange on a readOnly textarea does not reliably scroll in WebView2.
+    // Use a mirror div to get the exact pixel offset (accounts for word-wrap),
+    // then position the match in the upper third of the visible area.
+    const pixelOffset = getPixelOffsetInTextarea(ta, start);
+    ta.scrollTop = Math.max(0, pixelOffset - ta.clientHeight / 3);
+  }
+
   function handleTextareaScroll(e: React.UIEvent<HTMLTextAreaElement>) {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
@@ -165,7 +238,7 @@ export function TabObfuscate(): React.ReactElement {
       );
       isOurScrollRef.current = true;
       scrollWordToParagraph(idx).finally(() => {
-        setTimeout(() => { isOurScrollRef.current = false; }, 500);
+        setTimeout(() => { isOurScrollRef.current = false; }, 1000);
       });
     }, 150);
   }
@@ -226,6 +299,7 @@ export function TabObfuscate(): React.ReactElement {
 
         {state.status === "done" && (
           <textarea
+            ref={textareaRef}
             readOnly
             value={state.text || "(Document is empty)"}
             onScroll={handleTextareaScroll}
@@ -281,14 +355,23 @@ export function TabObfuscate(): React.ReactElement {
           )}
 
           {state.status === "done" && uniqueEntities(state.entities).map((e) => (
-            <div key={e.label} style={{
-              display: "flex",
-              gap: "8px",
-              padding: "2px 8px",
-              fontSize: "11px",
-              fontFamily: "Segoe UI, sans-serif",
-              lineHeight: "1.6",
-            }}>
+            <div
+              key={e.label}
+              onClick={() => handleEntityClick(e.label)}
+              onMouseEnter={() => setHoveredLabel(e.label)}
+              onMouseLeave={() => setHoveredLabel(null)}
+              style={{
+                display: "flex",
+                gap: "8px",
+                padding: "2px 8px",
+                fontSize: "11px",
+                fontFamily: "Segoe UI, sans-serif",
+                lineHeight: "1.6",
+                cursor: "pointer",
+                background: hoveredLabel === e.label ? "#e8e8e8" : "transparent",
+                borderRadius: "2px",
+              }}
+            >
               <span style={{ color: "#b00", fontWeight: 600, minWidth: "110px", flexShrink: 0 }}>
                 {e.label}
               </span>
