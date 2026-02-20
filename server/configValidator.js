@@ -36,12 +36,14 @@ const PARSER_OPTIONS = {
   isArray: (tagName) => ["AI", "Profile"].includes(tagName),
   allowBooleanAttributes: true,
   ignoreDeclaration: true,
+  commentPropName: "#comment",
 };
 
 const BUILDER_OPTIONS = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   format: true,
+  commentPropName: "#comment",
   indentBy: "  ",
   suppressEmptyNode: false,
 };
@@ -104,7 +106,8 @@ async function validate() {
       model: "gemini-1.5-flash",
       version: "1.5-flash",
       url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-      api_key_name: "GEMINI_API_KEY",
+      "#comment": " Enter the name of your API key as defined in the .env file. Get a free key at aistudio.google.com ",
+      api_key_name: "",
       description: "Google Gemini 1.5 Flash — free tier available at aistudio.google.com",
     });
     dirty = true;
@@ -116,8 +119,8 @@ async function validate() {
     const ai = config.JLHConfig.AIs.AI[i];
     const aiLabel = ai["@_name"] ? `AI '${ai["@_name"]}'` : `AI[${i + 1}]`;
 
-    const required = ["company", "model", "version", "url", "api_key_name"];
-    const optional = ["description"];
+    const required = ["company", "model", "version", "url"];
+    const optional = ["description", "api_key_name"];
 
     for (const field of required) {
       if (ai[field] === undefined) {
