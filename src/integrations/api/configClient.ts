@@ -1,5 +1,19 @@
 const AI_SERVER = "http://localhost:3003";
 
+export interface Profile {
+  name: string;
+  description: string;
+  ai: string;
+  aiVersion: string;
+}
+
+export async function fetchProfiles(): Promise<Profile[]> {
+  const res = await fetch(`${AI_SERVER}/config/profiles`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json() as { profiles: Profile[] };
+  return data.profiles;
+}
+
 export interface ConfigMessage {
   level: "info" | "warning" | "error";
   text: string;

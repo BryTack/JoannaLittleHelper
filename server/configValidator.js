@@ -248,4 +248,31 @@ function readConfig() {
   }
 }
 
-module.exports = { validate, readConfig, CONFIG_FILE, CONFIG_DIR };
+// Return profiles in XML order with Default moved to the end
+function readProfiles() {
+  if (!fs.existsSync(CONFIG_FILE)) return null;
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    const rawProfiles = config.JLHConfig?.Profiles?.Profile ?? [];
+    const rawAIs = config.JLHConfig?.AIs?.AI ?? [];
+    const ais = Array.isArray(rawAIs) ? rawAIs : [rawAIs];
+    const profiles = (Array.isArray(rawProfiles) ? rawProfiles : [rawProfiles]).map((p) => {
+      const aiName = p.ai || "";
+      const aiEntry = ais.find((a) => a["@_name"] === aiName);
+      return {
+        name: p["@_Name"] || "",
+        description: p.description || "",
+        ai: aiName,
+        aiVersion: aiEntry?.version || "",
+      };
+    });
+    const nonDefault = profiles.filter((p) => p.name !== "Default");
+    const defaultProfile = profiles.filter((p) => p.name === "Default");
+    return [...nonDefault, ...defaultProfile];
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { validate, readConfig, readProfiles, CONFIG_FILE, CONFIG_DIR };

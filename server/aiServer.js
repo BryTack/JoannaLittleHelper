@@ -7,7 +7,7 @@
  */
 
 const http = require("http");
-const { validate, readConfig, CONFIG_FILE } = require("./configValidator");
+const { validate, readConfig, readProfiles, CONFIG_FILE } = require("./configValidator");
 
 const PORT = 3003;
 const ALLOWED_ORIGIN = "https://localhost:3000";
@@ -100,6 +100,17 @@ const server = http.createServer((req, res) => {
       .filter((ai) => ai["@_name"] && ai.pattern && ai.url)
       .map((ai) => ({ name: ai["@_name"], description: ai.description || "" }));
     sendJson(res, 200, { ais: list });
+    return;
+  }
+
+  // GET /config/profiles — return profiles in XML order, Default last
+  if (req.method === "GET" && req.url === "/config/profiles") {
+    const profiles = readProfiles();
+    if (!profiles) {
+      sendJson(res, 503, { error: "Config not available" });
+      return;
+    }
+    sendJson(res, 200, { profiles });
     return;
   }
 

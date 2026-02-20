@@ -8,17 +8,17 @@ import {
   Tooltip,
 } from "@fluentui/react-components";
 import { Settings20Regular } from "@fluentui/react-icons";
-import { TabDocType } from "./tabs/TabDocType";
+import { TabHome } from "./tabs/TabHome";
 import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabClaude } from "./tabs/TabClaude";
 import { TabConfig } from "./tabs/TabConfig";
 import { fetchConfigValidation, ConfigState } from "../integrations/api/configClient";
 
-type TabId = "doctype" | "config" | "obfuscate" | "ai";
+type TabId = "home" | "config" | "obfuscate" | "ai";
 
 export function App(): React.ReactElement {
   const [configVisible, setConfigVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>("doctype");
+  const [activeTab, setActiveTab] = useState<TabId>("home");
   const [configState, setConfigState] = useState<ConfigState>({ status: "loading" });
 
   const runValidation = useCallback(async () => {
@@ -41,7 +41,7 @@ export function App(): React.ReactElement {
 
   const renderTab = () => {
     switch (activeTab) {
-      case "doctype":   return <TabDocType />;
+      case "home":      return <TabHome />;
       case "config":    return <TabConfig configState={configState} onRevalidate={runValidation} />;
       case "obfuscate": return <TabObfuscate />;
       case "ai":        return <TabClaude />;
@@ -82,7 +82,7 @@ export function App(): React.ReactElement {
                 const next = !configVisible;
                 setConfigVisible(next);
                 if (next) setActiveTab("config");
-                else if (activeTab === "config") setActiveTab("doctype");
+                else if (activeTab === "config") setActiveTab("home");
               }}
             />
           </Tooltip>
@@ -93,7 +93,7 @@ export function App(): React.ReactElement {
           onTabSelect={(_, data) => setActiveTab(data.value as TabId)}
           style={{ padding: "0 4px" }}
         >
-          <Tab value="doctype">Doc Type</Tab>
+          <Tab value="home">Home</Tab>
           <Tab value="obfuscate">Obfuscate</Tab>
           <Tab value="ai">AI</Tab>
           {configVisible && <Tab value="config">Config</Tab>}
