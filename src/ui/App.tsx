@@ -72,16 +72,19 @@ export function App(): React.ReactElement {
 
   return (
     <FluentProvider theme={webLightTheme} style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "6px 8px 0 8px",
-          borderBottom: "1px solid #e0e0e0",
-        }}>
-          <span style={{ fontWeight: 600, fontSize: "13px" }}>Joanna's Little Helper</span>
+        <div style={{ display: "flex", alignItems: "center", padding: "0 4px" }}>
+          <TabList
+            selectedValue={activeTab}
+            onTabSelect={(_, data) => setActiveTab(data.value as TabId)}
+            style={{ flex: 1 }}
+          >
+            <Tab value="home">Home</Tab>
+            <Tab value="obfuscate">Obfuscate</Tab>
+            <Tab value="ai">AI</Tab>
+            {configVisible && <Tab value="config">Config</Tab>}
+          </TabList>
           <Tooltip content={configVisible ? "Hide config" : "Show config"} relationship="label">
-            <Button
+            <Button style={{ marginRight: "28px" }}
               icon={
                 <span style={{ position: "relative", display: "inline-flex" }}>
                   <Settings20Regular />
@@ -109,17 +112,6 @@ export function App(): React.ReactElement {
             />
           </Tooltip>
         </div>
-
-        <TabList
-          selectedValue={activeTab}
-          onTabSelect={(_, data) => setActiveTab(data.value as TabId)}
-          style={{ padding: "0 4px" }}
-        >
-          <Tab value="home">Home</Tab>
-          <Tab value="obfuscate">Obfuscate</Tab>
-          <Tab value="ai">AI</Tab>
-          {configVisible && <Tab value="config">Config</Tab>}
-        </TabList>
 
         <div style={{ flex: 1, overflow: "auto" }}>
           {renderTab()}
