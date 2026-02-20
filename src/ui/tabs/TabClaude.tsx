@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { Button, Spinner } from "@fluentui/react-components";
-import { activeProvider } from "../../integrations/api/aiClient";
+import React, { useState, useEffect } from "react";
+import { Button, Select, Spinner } from "@fluentui/react-components";
+import { fetchAvailableAIs, sendMessage, AiOption } from "../../integrations/api/aiClient";
 
-type State =
+type SendState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "done"; text: string }
@@ -12,20 +12,33 @@ const TEST_PROMPT = "what is the last letter of the alphabet";
 
 export function TabClaude(): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
-  const [state, setState] = useState<State>({ status: "idle" });
+  const [sendState, setSendState] = useState<SendState>({ status: "idle" });
+  const [ais, setAis] = useState<AiOption[]>([]);
+  const [selectedAi, setSelectedAi] = useState("");
+
+  useEffect(() => {
+    fetchAvailableAIs()
+      .then((list) => {
+        setAis(list);
+        if (list.length > 0) setSelectedAi(list[0].name);
+      })
+      .catch(() => {
+        // Server unavailable — empty list, send button will be disabled
+      });
+  }, []);
 
   async function send() {
-    if (!prompt.trim()) return;
-    setState({ status: "loading" });
+    if (!prompt.trim() || !selectedAi) return;
+    setSendState({ status: "loading" });
     try {
-      const text = await activeProvider.sendMessage(prompt.trim());
-      setState({ status: "done", text });
+      const text = await sendMessage(prompt.trim(), selectedAi);
+      setSendState({ status: "done", text });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isConnectionError =
         msg.toLowerCase().includes("failed to fetch") ||
         msg.toLowerCase().includes("networkerror");
-      setState({
+      setSendState({
         status: "error",
         message: isConnectionError
           ? "Cannot reach AI service. Is it running? (start-jlh.bat)"
@@ -36,6 +49,23 @@ export function TabClaude(): React.ReactElement {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "6px", boxSizing: "border-box" }}>
+
+      {/* AI selector */}
+      <Select
+        value={selectedAi}
+        onChange={(_, data) => setSelectedAi(data.value)}
+        disabled={ais.length === 0 || sendState.status === "loading"}
+        size="small"
+      >
+        {ais.length === 0
+          ? <option value="">No AIs configured</option>
+          : ais.map((ai) => (
+              <option key={ai.name} value={ai.name} title={ai.description}>
+                {ai.name}
+              </option>
+            ))
+        }
+      </Select>
 
       {/* Prompt input */}
       <textarea
@@ -60,24 +90,24 @@ export function TabClaude(): React.ReactElement {
         appearance="primary"
         size="small"
         onClick={send}
-        disabled={state.status === "loading" || !prompt.trim()}
-        icon={state.status === "loading" ? <Spinner size="tiny" /> : undefined}
+        disabled={sendState.status === "loading" || !prompt.trim() || !selectedAi}
+        icon={sendState.status === "loading" ? <Spinner size="tiny" /> : undefined}
       >
-        {state.status === "loading" ? "Sending..." : `Send to ${activeProvider.name}`}
+        {sendState.status === "loading" ? "Sending…" : `Send to ${selectedAi || "AI"}`}
       </Button>
 
       {/* Error */}
-      {state.status === "error" && (
+      {sendState.status === "error" && (
         <div style={{ fontSize: "12px", color: "#a00", lineHeight: "1.5" }}>
-          {state.message}
+          {sendState.message}
         </div>
       )}
 
       {/* Response */}
-      {state.status === "done" && (
+      {sendState.status === "done" && (
         <textarea
           readOnly
-          value={state.text}
+          value={sendState.text}
           style={{
             flex: 1,
             resize: "none",

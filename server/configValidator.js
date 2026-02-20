@@ -234,4 +234,16 @@ async function validate() {
   return { valid, messages };
 }
 
-module.exports = { validate, CONFIG_FILE, CONFIG_DIR };
+// Read and parse config without running validation — for use by aiServer.js
+function readConfig() {
+  if (!fs.existsSync(CONFIG_FILE)) return null;
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    return config.JLHConfig?.AIs?.AI ?? [];
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { validate, readConfig, CONFIG_FILE, CONFIG_DIR };
