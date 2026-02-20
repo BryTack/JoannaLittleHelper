@@ -161,16 +161,17 @@ async function validate() {
     config.JLHConfig.Profiles.Profile = [config.JLHConfig.Profiles.Profile];
   }
 
-  // Step 11: At least one <Profile>
-  if (config.JLHConfig.Profiles.Profile.length === 0) {
+  // Step 11: Default profile must always be present
+  const hasDefault = config.JLHConfig.Profiles.Profile.some((p) => p["@_Name"] === "Default");
+  if (!hasDefault) {
     config.JLHConfig.Profiles.Profile.push({
-      "@_Name": "",
-      description: "",
+      "@_Name": "Default",
+      description: "Default profile",
       context: "",
-      ai: "",
+      ai: "Gemini",
     });
     dirty = true;
-    messages.push({ level: "info", text: "<Profile> element added — please fill in all required fields" });
+    messages.push({ level: "info", text: "Profiles > Default: added as default reference profile" });
   }
 
   // Steps 12–17: Check fields of each <Profile>
