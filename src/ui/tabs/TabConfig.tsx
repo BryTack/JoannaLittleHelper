@@ -21,6 +21,15 @@ export function TabConfig({ configState, onRevalidate }: TabConfigProps): React.
         </Button>
       </div>
 
+      <div style={{ fontSize: "11px", color: "#555" }}>
+        <span style={{ color: "#888" }}>Config file: </span>
+        <code style={{ wordBreak: "break-all" }}>
+          {configState.status === "done" && configState.validation.configFile
+            ? configState.validation.configFile
+            : "…"}
+        </code>
+      </div>
+
       {configState.status === "loading" && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#666" }}>
           <Spinner size="tiny" />
@@ -74,7 +83,7 @@ export function TabConfig({ configState, onRevalidate }: TabConfigProps): React.
 
           {!configState.validation.valid && (
             <div style={{ fontSize: "12px", color: "#666" }}>
-              Edit <code>Documents\JLH\config.xml</code> then click Re-check.
+              Edit the config file above then click Re-check.
             </div>
           )}
         </>

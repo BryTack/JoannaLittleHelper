@@ -8,6 +8,7 @@ export interface ConfigMessage {
 export interface ConfigValidation {
   valid: boolean;
   messages: ConfigMessage[];
+  configFile?: string;
 }
 
 export type ConfigState =

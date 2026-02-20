@@ -97,8 +97,9 @@ async function validate() {
   }
 
   // Steps 4–9: Check fields of each <AI>
-  for (const ai of config.JLHConfig.AIs.AI) {
-    const aiName = ai["@_name"] || "(unnamed)";
+  for (let i = 0; i < config.JLHConfig.AIs.AI.length; i++) {
+    const ai = config.JLHConfig.AIs.AI[i];
+    const aiLabel = ai["@_name"] ? `AI '${ai["@_name"]}'` : `AI[${i + 1}]`;
 
     const required = ["company", "model", "version", "url", "api_key_name"];
     const optional = ["description"];
@@ -107,9 +108,9 @@ async function validate() {
       if (ai[field] === undefined) {
         ai[field] = "";
         dirty = true;
-        messages.push({ level: "warning", text: `AI '${aiName}': <${field}> needs a value` });
+        messages.push({ level: "warning", text: `AIs > ${aiLabel} > ${field}: needs a value` });
       } else if (ai[field] === "" || ai[field] === null) {
-        messages.push({ level: "warning", text: `AI '${aiName}': <${field}> needs a value` });
+        messages.push({ level: "warning", text: `AIs > ${aiLabel} > ${field}: needs a value` });
       }
     }
 
@@ -124,7 +125,7 @@ async function validate() {
     if (ai.api_key_name && process.env[ai.api_key_name] === undefined) {
       messages.push({
         level: "error",
-        text: `AI '${aiName}': key '${ai.api_key_name}' not found in .env`,
+        text: `AIs > ${aiLabel} > api_key_name: environment variable '${ai.api_key_name}' not found in .env`,
       });
     }
   }
@@ -160,8 +161,9 @@ async function validate() {
   // Steps 12–17: Check fields of each <Profile>
   const validAiNames = config.JLHConfig.AIs.AI.map((ai) => ai["@_name"]).filter(Boolean);
 
-  for (const profile of config.JLHConfig.Profiles.Profile) {
-    const profileName = profile["@_Name"] || "(unnamed)";
+  for (let i = 0; i < config.JLHConfig.Profiles.Profile.length; i++) {
+    const profile = config.JLHConfig.Profiles.Profile[i];
+    const profileLabel = profile["@_Name"] ? `Profile '${profile["@_Name"]}'` : `Profile[${i + 1}]`;
 
     // Step 12: Name attribute
     if (profile["@_Name"] === undefined) {
@@ -169,7 +171,7 @@ async function validate() {
       dirty = true;
     }
     if (!profile["@_Name"]) {
-      messages.push({ level: "warning", text: "A Profile is missing its Name attribute" });
+      messages.push({ level: "warning", text: `Profiles > ${profileLabel} > Name attribute: missing` });
     }
 
     // Optional fields — ensure tag present, no message
@@ -183,9 +185,9 @@ async function validate() {
       if (profile[field] === undefined) {
         profile[field] = "";
         dirty = true;
-        messages.push({ level: "warning", text: `Profile '${profileName}': <${field}> needs a value` });
+        messages.push({ level: "warning", text: `Profiles > ${profileLabel} > ${field}: needs a value` });
       } else if (profile[field] === "" || profile[field] === null) {
-        messages.push({ level: "warning", text: `Profile '${profileName}': <${field}> needs a value` });
+        messages.push({ level: "warning", text: `Profiles > ${profileLabel} > ${field}: needs a value` });
       }
     }
 
@@ -193,7 +195,7 @@ async function validate() {
     if (profile.ai && !validAiNames.includes(String(profile.ai))) {
       messages.push({
         level: "error",
-        text: `Profile '${profileName}': AI '${profile.ai}' is not defined in <AIs>`,
+        text: `Profiles > ${profileLabel} > ai: '${profile.ai}' is not defined in AIs`,
       });
     }
   }

@@ -8,7 +8,7 @@
 
 const http = require("http");
 const Anthropic = require("@anthropic-ai/sdk");
-const { validate } = require("./configValidator");
+const { validate, CONFIG_FILE } = require("./configValidator");
 
 const PORT = 3003;
 const ALLOWED_ORIGIN = "https://localhost:3000";
@@ -49,7 +49,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && req.url === "/config/validate") {
     validate()
-      .then((result) => sendJson(res, 200, result))
+      .then((result) => sendJson(res, 200, { ...result, configFile: CONFIG_FILE }))
       .catch((err) => sendJson(res, 500, { error: err.message }));
     return;
   }
