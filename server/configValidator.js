@@ -103,10 +103,14 @@ async function validate() {
     config.JLHConfig.AIs.AI.push({
       "@_name": "Gemini",
       company: "google",
+      "#comment": [
+        " Supported patterns: anthropic-messages | openai-compatible | gemini-generate ",
+        " Enter the name of your API key as defined in the .env file. Get a free key at aistudio.google.com ",
+      ],
+      pattern: "gemini-generate",
       model: "gemini-1.5-flash",
       version: "1.5-flash",
       url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-      "#comment": " Enter the name of your API key as defined in the .env file. Get a free key at aistudio.google.com ",
       api_key_name: "",
       description: "Google Gemini 1.5 Flash — free tier available at aistudio.google.com",
     });
@@ -119,7 +123,7 @@ async function validate() {
     const ai = config.JLHConfig.AIs.AI[i];
     const aiLabel = ai["@_name"] ? `AI '${ai["@_name"]}'` : `AI[${i + 1}]`;
 
-    const required = ["company", "model", "version", "url"];
+    const required = ["company", "pattern", "model", "version", "url"];
     const optional = ["description", "api_key_name"];
 
     for (const field of required) {
