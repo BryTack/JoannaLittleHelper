@@ -215,7 +215,10 @@ export async function getDocumentSummary(): Promise<DocumentSummary> {
   try {
     const url = Office.context.document.url;
     if (url) {
-      summary.fileName = url.replace(/\\/g, "/").split("/").pop() || "";
+      const fullName = url.replace(/\\/g, "/").split("/").pop() || "";
+      const isTempName = /^Document\d*$/i.test(fullName.replace(/\.[^.]+$/, ""))
+        || /^Word add-in /i.test(fullName);
+      if (!isTempName) summary.fileName = fullName;
     }
   } catch {
     // leave empty — document not yet saved

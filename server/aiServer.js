@@ -17,7 +17,11 @@ const ALLOWED_ORIGIN = "https://localhost:3000";
 // Add new patterns here — no other code changes needed.
 
 const PATTERNS = {
-  "anthropic-messages": async (url, model, apiKey, prompt, systemPrompt) => {
+  "anthropic-messages": async (url, model, apiKey, prompt, systemPrompt, documentText) => {
+    // Anthropic best practice: wrap document content in XML tags in the user turn
+    const userMessage = documentText
+      ? `<document>\n${documentText}\n</document>\n\n${prompt}`
+      : prompt;
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -29,7 +33,7 @@ const PATTERNS = {
         model,
         max_tokens: 1024,
         ...(systemPrompt ? { system: systemPrompt } : {}),
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: userMessage }],
       }),
     });
     const data = await res.json();
@@ -37,10 +41,13 @@ const PATTERNS = {
     return data.content[0].text;
   },
 
-  "openai-compatible": async (url, model, apiKey, prompt, systemPrompt) => {
+  "openai-compatible": async (url, model, apiKey, prompt, systemPrompt, documentText) => {
+    const userMessage = documentText
+      ? `Document:\n${documentText}\n\n---\n\n${prompt}`
+      : prompt;
     const messages = [
       ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-      { role: "user", content: prompt },
+      { role: "user", content: userMessage },
     ];
     const res = await fetch(url, {
       method: "POST",
@@ -55,14 +62,17 @@ const PATTERNS = {
     return data.choices[0].message.content;
   },
 
-  "gemini-generate": async (url, _model, apiKey, prompt, systemPrompt) => {
+  "gemini-generate": async (url, _model, apiKey, prompt, systemPrompt, documentText) => {
+    const userMessage = documentText
+      ? `Document:\n${documentText}\n\n---\n\n${prompt}`
+      : prompt;
     const fullUrl = apiKey ? `${url}?key=${apiKey}` : url;
     const res = await fetch(fullUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: [{ text: userMessage }] }],
       }),
     });
     const data = await res.json();
@@ -123,7 +133,7 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", async () => {
       try {
-        const { prompt, aiName, context } = JSON.parse(body);
+        const { prompt, aiName, context, documentText } = JSON.parse(body);
 
         const ais = readConfig();
         if (!ais) {
@@ -149,7 +159,7 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const text = await adapter(ai.url, ai.model, apiKey, prompt, context || "");
+        const text = await adapter(ai.url, ai.model, apiKey, prompt, context || "", documentText || "");
         sendJson(res, 200, { text });
       } catch (err) {
         sendJson(res, 500, { error: err.message });

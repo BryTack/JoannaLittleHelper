@@ -33,7 +33,7 @@ function SummaryTable({ summary }: { summary: DocumentSummary }) {
   return (
     <table style={{ borderCollapse: "collapse", width: "100%" }}>
       <tbody>
-        {row("File",         summary.fileName)}
+        {row("Filename",     summary.fileName)}
         {row("Title",        summary.title)}
         {row("Subject",      summary.subject)}
         {row("Author",       summary.author)}
