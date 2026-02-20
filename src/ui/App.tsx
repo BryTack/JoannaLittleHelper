@@ -12,7 +12,7 @@ import { TabHome } from "./tabs/TabHome";
 import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabClaude } from "./tabs/TabClaude";
 import { TabConfig } from "./tabs/TabConfig";
-import { fetchConfigValidation, ConfigState } from "../integrations/api/configClient";
+import { fetchConfigValidation, ConfigState, fetchProfiles, Profile } from "../integrations/api/configClient";
 
 type TabId = "home" | "config" | "obfuscate" | "ai";
 
@@ -20,6 +20,11 @@ export function App(): React.ReactElement {
   const [configVisible, setConfigVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [configState, setConfigState] = useState<ConfigState>({ status: "loading" });
+
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [selectedProfileName, setSelectedProfileName] = useState<string>("");
 
   const runValidation = useCallback(async () => {
     setConfigState({ status: "loading" });
@@ -33,18 +38,35 @@ export function App(): React.ReactElement {
 
   useEffect(() => {
     runValidation();
+    fetchProfiles()
+      .then((p) => {
+        setProfiles(p);
+        if (p.length > 0) setSelectedProfileName(p[0].name);
+      })
+      .catch((e: Error) => setProfileError(e.message))
+      .finally(() => setProfilesLoading(false));
   }, [runValidation]);
 
   const configHasIssues =
     configState.status === "unavailable" ||
     (configState.status === "done" && !configState.validation.valid);
 
+  const selectedProfile = profiles.find((p) => p.name === selectedProfileName);
+
   const renderTab = () => {
     switch (activeTab) {
-      case "home":      return <TabHome />;
+      case "home":      return (
+        <TabHome
+          profiles={profiles}
+          profilesLoading={profilesLoading}
+          profileError={profileError}
+          selectedName={selectedProfileName}
+          onSelectName={setSelectedProfileName}
+        />
+      );
       case "config":    return <TabConfig configState={configState} onRevalidate={runValidation} />;
       case "obfuscate": return <TabObfuscate />;
-      case "ai":        return <TabClaude />;
+      case "ai":        return <TabClaude selectedProfile={selectedProfile} />;
     }
   };
 

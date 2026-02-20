@@ -146,3 +146,80 @@ export async function clearHighlights(): Promise<void> {
     await context.sync();
   });
 }
+
+export interface DocumentSummary {
+  fileName: string;
+  title: string;
+  subject: string;
+  author: string;
+  keywords: string;
+  description: string;  // maps to props.comments in the Word API
+  category: string;
+  creationDate: Date | null;
+  lastSaveTime: Date | null;
+  lastPrintDate: Date | null;
+  wordCount: number;
+  charCount: number;
+  paragraphCount: number;
+}
+
+/** Returns a summary of the active document's properties and statistics. */
+export async function getDocumentSummary(): Promise<DocumentSummary> {
+  const summary: DocumentSummary = {
+    fileName: "",
+    title: "",
+    subject: "",
+    author: "",
+    keywords: "",
+    description: "",
+    category: "",
+    creationDate: null,
+    lastSaveTime: null,
+    lastPrintDate: null,
+    wordCount: 0,
+    charCount: 0,
+    paragraphCount: 0,
+  };
+
+  await Word.run(async (context) => {
+    const props = context.document.properties;
+    props.load("title,subject,author,keywords,comments,category,creationDate,lastSaveTime,lastPrintDate");
+    const body = context.document.body;
+    body.load("text");
+    const paragraphs = body.paragraphs;
+    paragraphs.load("text");
+    await context.sync();
+
+    summary.title       = props.title    || "";
+    summary.subject     = props.subject  || "";
+    summary.author      = props.author   || "";
+    summary.keywords    = props.keywords || "";
+    summary.description = props.comments || "";
+    summary.category    = props.category || "";
+
+    // Treat dates before 1990 as "not set" (Word returns a default epoch-ish date)
+    const toDate = (d: Date): Date | null => {
+      const parsed = new Date(d);
+      return parsed.getFullYear() >= 1990 ? parsed : null;
+    };
+    summary.creationDate  = props.creationDate  ? toDate(props.creationDate)  : null;
+    summary.lastSaveTime  = props.lastSaveTime   ? toDate(props.lastSaveTime)  : null;
+    summary.lastPrintDate = props.lastPrintDate  ? toDate(props.lastPrintDate) : null;
+
+    const text = body.text;
+    summary.wordCount      = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+    summary.charCount      = text.length;
+    summary.paragraphCount = paragraphs.items.length;
+  });
+
+  try {
+    const url = Office.context.document.url;
+    if (url) {
+      summary.fileName = url.replace(/\\/g, "/").split("/").pop() || "";
+    }
+  } catch {
+    // leave empty — document not yet saved
+  }
+
+  return summary;
+}

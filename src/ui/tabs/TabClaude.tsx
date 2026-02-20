@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { Button, Select, Spinner } from "@fluentui/react-components";
-import { fetchAvailableAIs, sendMessage, AiOption } from "../../integrations/api/aiClient";
+import React, { useState } from "react";
+import { Button, Spinner, Text } from "@fluentui/react-components";
+import { sendMessage } from "../../integrations/api/aiClient";
+import { Profile } from "../../integrations/api/configClient";
 
 type SendState =
   | { status: "idle" }
@@ -10,28 +11,24 @@ type SendState =
 
 const TEST_PROMPT = "what is the last letter of the alphabet";
 
-export function TabClaude(): React.ReactElement {
+interface TabClaudeProps {
+  selectedProfile: Profile | undefined;
+}
+
+export function TabClaude({ selectedProfile }: TabClaudeProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
-  const [ais, setAis] = useState<AiOption[]>([]);
-  const [selectedAi, setSelectedAi] = useState("");
 
-  useEffect(() => {
-    fetchAvailableAIs()
-      .then((list) => {
-        setAis(list);
-        if (list.length > 0) setSelectedAi(list[0].name);
-      })
-      .catch(() => {
-        // Server unavailable — empty list, send button will be disabled
-      });
-  }, []);
+  const aiName = selectedProfile?.ai ?? "";
+  const aiLabel = aiName
+    ? `${aiName}${selectedProfile?.aiVersion ? ` (${selectedProfile.aiVersion})` : ""}`
+    : "";
 
   async function send() {
-    if (!prompt.trim() || !selectedAi) return;
+    if (!prompt.trim() || !aiName) return;
     setSendState({ status: "loading" });
     try {
-      const text = await sendMessage(prompt.trim(), selectedAi);
+      const text = await sendMessage(prompt.trim(), aiName);
       setSendState({ status: "done", text });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -50,22 +47,10 @@ export function TabClaude(): React.ReactElement {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "6px", boxSizing: "border-box" }}>
 
-      {/* AI selector */}
-      <Select
-        value={selectedAi}
-        onChange={(_, data) => setSelectedAi(data.value)}
-        disabled={ais.length === 0 || sendState.status === "loading"}
-        size="small"
-      >
-        {ais.length === 0
-          ? <option value="">No AIs configured</option>
-          : ais.map((ai) => (
-              <option key={ai.name} value={ai.name} title={ai.description}>
-                {ai.name}
-              </option>
-            ))
-        }
-      </Select>
+      {/* AI label */}
+      <Text size={200} style={{ color: "#605e5c" }}>
+        {aiLabel ? `AI: ${aiLabel}` : "No profile selected — choose one on the Home tab"}
+      </Text>
 
       {/* Prompt input */}
       <textarea
@@ -90,10 +75,10 @@ export function TabClaude(): React.ReactElement {
         appearance="primary"
         size="small"
         onClick={send}
-        disabled={sendState.status === "loading" || !prompt.trim() || !selectedAi}
+        disabled={sendState.status === "loading" || !prompt.trim() || !aiName}
         icon={sendState.status === "loading" ? <Spinner size="tiny" /> : undefined}
       >
-        {sendState.status === "loading" ? "Sending…" : `Send to ${selectedAi || "AI"}`}
+        {sendState.status === "loading" ? "Sending…" : `Send to ${aiName || "AI"}`}
       </Button>
 
       {/* Error */}
