@@ -8,6 +8,7 @@
 
 const http = require("http");
 const Anthropic = require("@anthropic-ai/sdk");
+const { validate } = require("./configValidator");
 
 const PORT = 3003;
 const ALLOWED_ORIGIN = "https://localhost:3000";
@@ -37,12 +38,19 @@ const PROVIDERS = {
 
 const server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/config/validate") {
+    validate()
+      .then((result) => sendJson(res, 200, result))
+      .catch((err) => sendJson(res, 500, { error: err.message }));
     return;
   }
 
