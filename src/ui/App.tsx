@@ -81,7 +81,8 @@ export function App(): React.ReactElement {
               onClick={() => {
                 const next = !configVisible;
                 setConfigVisible(next);
-                if (!next && activeTab === "config") setActiveTab("doctype");
+                if (next) setActiveTab("config");
+                else if (activeTab === "config") setActiveTab("doctype");
               }}
             />
           </Tooltip>
