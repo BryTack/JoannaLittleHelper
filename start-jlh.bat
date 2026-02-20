@@ -7,6 +7,18 @@ echo   Joanna's Little Helper - Launcher
 echo ==============================================
 echo.
 
+:: --- WebView2 loopback exemption (one-time, requires admin) ---
+:: Allows WebView2 to connect to localhost during development.
+:: Once set this check passes instantly with no prompt.
+CheckNetIsolation.exe LoopbackExempt -s | findstr /i "Win32WebViewHost" >nul 2>&1
+if %errorlevel% == 0 (
+    echo [OK] WebView2 loopback exemption already set
+) else (
+    echo [..] Setting WebView2 loopback exemption ^(one-time admin prompt^)...
+    powershell -Command "Start-Process CheckNetIsolation.exe -ArgumentList 'LoopbackExempt -a -n=Microsoft.Win32WebViewHost_cw5n1h2txyewy' -Verb RunAs -Wait"
+    echo [OK] WebView2 loopback exemption set
+)
+
 :: --- Presidio service (port 3002) ---
 netstat -ano | findstr ":3002 " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% == 0 (
