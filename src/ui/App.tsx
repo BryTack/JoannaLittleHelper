@@ -14,7 +14,7 @@ import { TabClaude } from "./tabs/TabClaude";
 import { TabConfig } from "./tabs/TabConfig";
 import { fetchConfigValidation, ConfigState } from "../integrations/api/configClient";
 
-type TabId = "doctype" | "config" | "obfuscate" | "claude";
+type TabId = "doctype" | "config" | "obfuscate" | "ai";
 
 export function App(): React.ReactElement {
   const [configVisible, setConfigVisible] = useState(false);
@@ -35,21 +35,7 @@ export function App(): React.ReactElement {
     runValidation();
   }, [runValidation]);
 
-  // If Claude tab becomes disabled, redirect away from it
-  useEffect(() => {
-    const claudeDisabled =
-      configState.status === "unavailable" ||
-      (configState.status === "done" && !configState.validation.valid);
-    if (claudeDisabled && activeTab === "claude") {
-      setActiveTab("doctype");
-    }
-  }, [configState, activeTab]);
-
   const configHasIssues =
-    configState.status === "unavailable" ||
-    (configState.status === "done" && !configState.validation.valid);
-
-  const claudeDisabled =
     configState.status === "unavailable" ||
     (configState.status === "done" && !configState.validation.valid);
 
@@ -58,7 +44,7 @@ export function App(): React.ReactElement {
       case "doctype":   return <TabDocType />;
       case "config":    return <TabConfig configState={configState} onRevalidate={runValidation} />;
       case "obfuscate": return <TabObfuscate />;
-      case "claude":    return <TabClaude />;
+      case "ai":        return <TabClaude />;
     }
   };
 
@@ -109,7 +95,7 @@ export function App(): React.ReactElement {
           <Tab value="doctype">Doc Type</Tab>
           {configVisible && <Tab value="config">Config</Tab>}
           <Tab value="obfuscate">Obfuscate</Tab>
-          <Tab value="claude" disabled={claudeDisabled}>Claude</Tab>
+          <Tab value="ai">AI</Tab>
         </TabList>
 
         <div style={{ flex: 1, overflow: "auto" }}>
