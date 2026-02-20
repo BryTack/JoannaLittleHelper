@@ -95,19 +95,20 @@ async function validate() {
     config.JLHConfig.AIs.AI = [config.JLHConfig.AIs.AI];
   }
 
-  // Step 3: At least one <AI>
-  if (config.JLHConfig.AIs.AI.length === 0) {
+  // Step 3: Gemini must always be present as a reference entry
+  const hasGemini = config.JLHConfig.AIs.AI.some((ai) => ai["@_name"] === "Gemini");
+  if (!hasGemini) {
     config.JLHConfig.AIs.AI.push({
-      "@_name": "",
-      company: "",
-      model: "",
-      version: "",
-      url: "",
-      api_key_name: "",
-      description: "",
+      "@_name": "Gemini",
+      company: "google",
+      model: "gemini-1.5-flash",
+      version: "1.5-flash",
+      url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+      api_key_name: "GEMINI_API_KEY",
+      description: "Google Gemini 1.5 Flash — free tier available at aistudio.google.com",
     });
     dirty = true;
-    messages.push({ level: "info", text: "<AI> element added — please fill in all required fields" });
+    messages.push({ level: "info", text: "AIs > Gemini: added as default reference entry" });
   }
 
   // Steps 4–9: Check fields of each <AI>
