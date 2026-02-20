@@ -104,6 +104,11 @@ export function TabHome({ profiles, profilesLoading, profileError, selectedName,
               AI: {selected.ai}{selected.aiVersion ? ` (${selected.aiVersion})` : ""}
             </Text>
           )}
+          {selected?.aiGoodFor && (
+            <Text size={200} style={{ color: "#605e5c" }}>
+              Good for: {selected.aiGoodFor}
+            </Text>
+          )}
         </div>
       )}
 

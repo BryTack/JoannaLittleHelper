@@ -112,6 +112,7 @@ async function validate() {
       version: "1.5-flash",
       url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
       api_key_name: "",
+      good_for: "General tasks, summarisation, and quick analysis — free tier available",
       description: "Google Gemini 1.5 Flash — free tier available at aistudio.google.com",
     });
     dirty = true;
@@ -124,7 +125,7 @@ async function validate() {
     const aiLabel = ai["@_name"] ? `AI '${ai["@_name"]}'` : `AI[${i + 1}]`;
 
     const required = ["company", "pattern", "model", "version", "url"];
-    const optional = ["description", "api_key_name"];
+    const optional = ["description", "api_key_name", "good_for"];
 
     for (const field of required) {
       if (ai[field] === undefined) {
@@ -141,6 +142,12 @@ async function validate() {
         ai[field] = "";
         dirty = true;
       }
+    }
+
+    // Backfill good_for for known AIs if the user left it blank
+    if (ai["@_name"] === "Gemini" && !ai.good_for) {
+      ai.good_for = "General tasks, summarisation, and quick analysis — free tier available";
+      dirty = true;
     }
 
     // Step 9: api_key_name must exist in environment
@@ -265,6 +272,7 @@ function readProfiles() {
         description: p.description || "",
         ai: aiName,
         aiVersion: aiEntry?.version || "",
+        aiGoodFor: aiEntry?.good_for || "",
       };
     });
     const nonDefault = profiles.filter((p) => p.name !== "Default");

@@ -5,6 +5,7 @@ export interface Profile {
   description: string;
   ai: string;
   aiVersion: string;
+  aiGoodFor: string;
 }
 
 export async function fetchProfiles(): Promise<Profile[]> {
