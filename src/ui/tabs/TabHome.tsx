@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import pkg from "../../../package.json";
+const { version } = pkg;
 import { Label, Select, Text, Spinner } from "@fluentui/react-components";
 import { Profile } from "../../integrations/api/configClient";
 import { getDocumentSummary, DocumentSummary } from "../../integrations/word/documentTools";
@@ -93,15 +95,12 @@ export function TabHome({ profiles, profilesLoading, profileError, selectedName,
             onChange={(_, data) => onSelectName(data.value)}
           >
             {profiles.map((p) => (
-              <option key={p.name} value={p.name}>{p.name}</option>
+              <option key={p.name} value={p.name}>{p.name}{p.description ? `: ${p.description}` : ""}</option>
             ))}
           </Select>
-          {selected?.description && (
-            <Text size={200} style={{ color: "#605e5c" }}>{selected.description}</Text>
-          )}
           {selected?.ai && (
             <Text size={200} style={{ color: "#605e5c" }}>
-              AI: {selected.ai}{selected.aiVersion ? ` (${selected.aiVersion})` : ""}{selected.aiGoodFor ? ` — ${selected.aiGoodFor}` : ""}
+              {selected.ai}{selected.aiVersion ? ` (${selected.aiVersion})` : ""}{selected.aiGoodFor ? `: ${selected.aiGoodFor}` : ""}
             </Text>
           )}
         </div>
@@ -119,6 +118,11 @@ export function TabHome({ profiles, profilesLoading, profileError, selectedName,
         ) : summary ? (
           <SummaryTable summary={summary} />
         ) : null}
+      </div>
+
+      {/* ── Version ──────────────────────────────────────────── */}
+      <div style={{ marginTop: "auto", paddingTop: "12px", textAlign: "right" }}>
+        <Text size={100} style={{ color: "#c0c0c0" }}>v{version}</Text>
       </div>
 
     </div>

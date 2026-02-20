@@ -3,6 +3,7 @@
     "allowJs": true,
     "baseUrl": ".",
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "experimentalDecorators": true,
     "jsx": "react",
     "noEmitOnError": true,
