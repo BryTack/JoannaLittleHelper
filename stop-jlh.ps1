@@ -8,7 +8,7 @@ if ($word) {
 }
 
 # Close cmd windows launched by start-jlh.bat, matched by command line content
-$patterns = @('presidioServer', 'aiServer', 'dev-server', 'npm start')
+$patterns = @('presidioServer', 'aiServer', 'dev-server', 'npm start', 'start-jlh')
 
 Get-WmiObject Win32_Process -Filter 'Name="cmd.exe"' | ForEach-Object {
   $cmdline = $_.CommandLine
