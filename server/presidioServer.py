@@ -45,9 +45,30 @@ except ImportError:
 try:
     from presidio_analyzer.predefined_recognizers.country_specific.uk import UkPostcodeRecognizer
     analyzer.registry.add_recognizer(UkPostcodeRecognizer())
-    print("[Presidio] UK Postcode recognizer enabled", flush=True)
+    print("[Presidio] UK Postcode recognizer enabled (built-in)", flush=True)
 except ImportError:
-    print("[Presidio] UkPostcodeRecognizer not available in this version — skipping", flush=True)
+    # Not yet released on PyPI — use a custom recognizer covering all 6 valid formats
+    # plus GIR 0AA. Score 0.65 catches postcodes in address blocks without context words.
+    analyzer.registry.add_recognizer(PatternRecognizer(
+        supported_entity="UK_POSTCODE",
+        patterns=[Pattern(
+            name="uk_postcode",
+            regex=(
+                r"\b("
+                r"GIR\s?0AA"                                              # Special case
+                r"|[A-PR-UWYZ][A-HK-Y][0-9]{2}\s?[0-9][ABD-HJLNP-UW-Z]{2}"   # AA99 9AA
+                r"|[A-PR-UWYZ][A-HK-Y][0-9][ABEHMNPRVWXY]\s?[0-9][ABD-HJLNP-UW-Z]{2}"  # AA9A 9AA
+                r"|[A-PR-UWYZ][A-HK-Y][0-9]\s?[0-9][ABD-HJLNP-UW-Z]{2}"  # AA9 9AA
+                r"|[A-PR-UWYZ][0-9]{2}\s?[0-9][ABD-HJLNP-UW-Z]{2}"       # A99 9AA
+                r"|[A-PR-UWYZ][0-9][ABCDEFGHJKPSTUW]\s?[0-9][ABD-HJLNP-UW-Z]{2}"  # A9A 9AA
+                r"|[A-PR-UWYZ][0-9]\s?[0-9][ABD-HJLNP-UW-Z]{2}"          # A9 9AA
+                r")\b"
+            ),
+            score=0.65,
+        )],
+        context=["postcode", "post code", "post-code", "address", "delivery", "shipping"],
+    ))
+    print("[Presidio] UK Postcode recognizer enabled (custom)", flush=True)
 
 # Step 4: UK Sort Code — dashed format (xx-xx-xx) is specific enough at 0.5 base score;
 # context words bump it further, plain digits alone stay low without context.
