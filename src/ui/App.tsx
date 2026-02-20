@@ -53,22 +53,16 @@ export function App(): React.ReactElement {
 
   const selectedProfile = profiles.find((p) => p.name === selectedProfileName);
 
-  const renderTab = () => {
-    switch (activeTab) {
-      case "home":      return (
-        <TabHome
-          profiles={profiles}
-          profilesLoading={profilesLoading}
-          profileError={profileError}
-          selectedName={selectedProfileName}
-          onSelectName={setSelectedProfileName}
-        />
-      );
-      case "config":    return <TabConfig configState={configState} onRevalidate={runValidation} />;
-      case "obfuscate": return <TabObfuscate />;
-      case "ai":        return <TabAI selectedProfile={selectedProfile} />;
-    }
-  };
+  // Helper: wrapper that keeps a tab mounted but invisible when inactive,
+  // preserving all component state across tab switches.
+  const tabPane = (id: TabId, content: React.ReactElement) => (
+    <div
+      key={id}
+      style={{ display: activeTab === id ? "block" : "none", height: "100%" }}
+    >
+      {content}
+    </div>
+  );
 
   return (
     <FluentProvider theme={webLightTheme} style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
@@ -114,7 +108,16 @@ export function App(): React.ReactElement {
         </div>
 
         <div style={{ flex: 1, overflow: "auto" }}>
-          {renderTab()}
+          {tabPane("home", <TabHome
+            profiles={profiles}
+            profilesLoading={profilesLoading}
+            profileError={profileError}
+            selectedName={selectedProfileName}
+            onSelectName={setSelectedProfileName}
+          />)}
+          {tabPane("obfuscate", <TabObfuscate />)}
+          {tabPane("ai", <TabAI selectedProfile={selectedProfile} />)}
+          {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runValidation} />)}
         </div>
     </FluentProvider>
   );

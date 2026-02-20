@@ -16,10 +16,52 @@ ALLOWED_ORIGIN = "https://localhost:3000"
 
 print("[Presidio] Loading NLP model — this takes a few seconds...", flush=True)
 
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
+from presidio_analyzer.predefined_recognizers import PhoneRecognizer
 from presidio_anonymizer import AnonymizerEngine
 
+# Step 3: score threshold — detections below this are discarded
+SCORE_THRESHOLD = 0.4
+
+# ── Build analyzer ────────────────────────────────────────────────────────────
 analyzer = AnalyzerEngine()
+
+# Step 2: Replace default PhoneRecognizer with one scoped to GB
+try:
+    analyzer.registry.remove_recognizer("PhoneRecognizer")
+except Exception:
+    pass
+analyzer.registry.add_recognizer(PhoneRecognizer(supported_regions=["GB", "UK"]))
+print("[Presidio] Phone recognizer configured for GB", flush=True)
+
+# Step 1: Enable UK recognizers that are off by default since Presidio 2.2.359
+try:
+    from presidio_analyzer.predefined_recognizers.country_specific.uk import UkNinoRecognizer
+    analyzer.registry.add_recognizer(UkNinoRecognizer())
+    print("[Presidio] UK NINO recognizer enabled", flush=True)
+except ImportError:
+    print("[Presidio] UkNinoRecognizer not available in this version", flush=True)
+
+try:
+    from presidio_analyzer.predefined_recognizers.country_specific.uk import UkPostcodeRecognizer
+    analyzer.registry.add_recognizer(UkPostcodeRecognizer())
+    print("[Presidio] UK Postcode recognizer enabled", flush=True)
+except ImportError:
+    print("[Presidio] UkPostcodeRecognizer not available in this version — skipping", flush=True)
+
+# Step 4: UK Sort Code — dashed format (xx-xx-xx) is specific enough at 0.5 base score;
+# context words bump it further, plain digits alone stay low without context.
+analyzer.registry.add_recognizer(PatternRecognizer(
+    supported_entity="UK_SORT_CODE",
+    patterns=[Pattern(
+        name="uk_sort_code_dashed",
+        regex=r"\b\d{2}-\d{2}-\d{2}\b",
+        score=0.5,
+    )],
+    context=["sort code", "sort-code", "sortcode", "bank", "branch", "account"],
+))
+print("[Presidio] UK Sort Code recognizer enabled", flush=True)
+
 anonymizer = AnonymizerEngine()
 
 print(f"[Presidio] Ready on http://localhost:{PORT}", flush=True)
@@ -99,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
             text = body.get("text", "")
             language = body.get("language", "en")
 
-            results = analyzer.analyze(text=text, language=language)
+            results = analyzer.analyze(text=text, language=language, score_threshold=SCORE_THRESHOLD)
             anonymised_text, entities = _anonymize_consistent(text, results)
 
             self._send_json(200, {"text": anonymised_text, "entities": entities})
