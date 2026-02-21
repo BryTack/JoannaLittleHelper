@@ -7,7 +7,7 @@
  */
 
 const http = require("http");
-const { validate, readConfig, readProfiles, CONFIG_FILE } = require("./configValidator");
+const { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, CONFIG_FILE } = require("./configValidator");
 
 const PORT = 3003;
 const ALLOWED_ORIGIN = "https://localhost:3000";
@@ -124,6 +124,28 @@ const server = http.createServer((req, res) => {
       return;
     }
     sendJson(res, 200, { profiles });
+    return;
+  }
+
+  // GET /config/doctypes — return list of document types
+  if (req.method === "GET" && req.url === "/config/doctypes") {
+    const docTypes = readDocTypes();
+    if (!docTypes) {
+      sendJson(res, 503, { error: "Config not available" });
+      return;
+    }
+    sendJson(res, 200, { docTypes });
+    return;
+  }
+
+  // GET /config/buttons — return GeneralButtons config
+  if (req.method === "GET" && req.url === "/config/buttons") {
+    const gb = readGeneralButtons();
+    if (!gb) {
+      sendJson(res, 503, { error: "Config not available" });
+      return;
+    }
+    sendJson(res, 200, gb);
     return;
   }
 

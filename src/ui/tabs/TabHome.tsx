@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import pkg from "../../../package.json";
 const { version } = pkg;
 import { Label, Select, Text, Spinner } from "@fluentui/react-components";
-import { Profile } from "../../integrations/api/configClient";
+import { Profile, DocType } from "../../integrations/api/configClient";
 import { getDocumentSummary, DocumentSummary } from "../../integrations/word/documentTools";
 
 function formatDate(d: Date | null): string {
@@ -60,9 +60,15 @@ interface TabHomeProps {
   profileError: string | null;
   selectedName: string;
   onSelectName: (name: string) => void;
+  docTypes: DocType[];
+  selectedDocTypeName: string;
+  onSelectDocTypeName: (name: string) => void;
 }
 
-export function TabHome({ profiles, profilesLoading, profileError, selectedName, onSelectName }: TabHomeProps): React.ReactElement {
+export function TabHome({
+  profiles, profilesLoading, profileError, selectedName, onSelectName,
+  docTypes, selectedDocTypeName, onSelectDocTypeName,
+}: TabHomeProps): React.ReactElement {
   const [summary, setSummary]               = useState<DocumentSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError]     = useState<string | null>(null);
@@ -75,39 +81,76 @@ export function TabHome({ profiles, profilesLoading, profileError, selectedName,
   }, []);
 
   const selected = profiles.find((p) => p.name === selectedName);
+  const selectedDocType = docTypes.find((dt) => dt.name === selectedDocTypeName);
 
   return (
-    <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-      {/* ── Profile ─────────────────────────────────────── */}
-      {profilesLoading ? (
-        <Spinner size="tiny" label="Loading profiles…" />
-      ) : profileError ? (
-        <Text style={{ color: "#d13438" }}>Could not load profiles: {profileError}</Text>
-      ) : profiles.length === 0 ? (
-        <Text size={200}>No profiles defined in config.</Text>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <Label htmlFor="profile-select">Active profile</Label>
-          <Select
-            id="profile-select"
-            value={selectedName}
-            onChange={(_, data) => onSelectName(data.value)}
-          >
-            {profiles.map((p) => (
-              <option key={p.name} value={p.name}>{p.name}{p.description ? `: ${p.description}` : ""}</option>
-            ))}
-          </Select>
-          {selected?.ai && (
-            <Text size={200} style={{ color: "#605e5c" }}>
-              {selected.ai}{selected.aiVersion ? ` (${selected.aiVersion})` : ""}{selected.aiGoodFor ? `: ${selected.aiGoodFor}` : ""}
-            </Text>
-          )}
+      {/* ── Scrollable controls ───────────────────────────── */}
+      <div style={{ flex: 1, overflow: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
+
+        {/* ── Profile ───────────────────────────────────── */}
+        {profilesLoading ? (
+          <Spinner size="tiny" label="Loading profiles…" />
+        ) : profileError ? (
+          <Text style={{ color: "#d13438" }}>Could not load profiles: {profileError}</Text>
+        ) : profiles.length === 0 ? (
+          <Text size={200}>No profiles defined in config.</Text>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <Label htmlFor="profile-select">Active profile</Label>
+            <Select
+              id="profile-select"
+              value={selectedName}
+              onChange={(_, data) => onSelectName(data.value)}
+            >
+              {profiles.map((p) => (
+                <option key={p.name} value={p.name}>{p.name}{p.description ? `: ${p.description}` : ""}</option>
+              ))}
+            </Select>
+            {selected?.ai && (
+              <Text size={200} style={{ color: "#605e5c" }}>
+                {selected.ai}{selected.aiVersion ? ` (${selected.aiVersion})` : ""}{selected.aiGoodFor ? `: ${selected.aiGoodFor}` : ""}
+              </Text>
+            )}
+          </div>
+        )}
+
+        {/* ── Document type ─────────────────────────────── */}
+        {docTypes.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <Label htmlFor="doctype-select">Document type</Label>
+            <Select
+              id="doctype-select"
+              value={selectedDocTypeName}
+              onChange={(_, data) => onSelectDocTypeName(data.value)}
+            >
+              {docTypes.map((dt) => (
+                <option key={dt.name} value={dt.name}>{dt.name}{dt.description ? `: ${dt.description}` : ""}</option>
+              ))}
+            </Select>
+            {selectedDocType?.context && (
+              <Text size={200} style={{ color: "#605e5c" }}>{selectedDocType.context}</Text>
+            )}
+          </div>
+        )}
+
+        {/* ── Version ───────────────────────────────────── */}
+        <div style={{ marginTop: "auto", paddingTop: "4px", textAlign: "right" }}>
+          <Text size={100} style={{ color: "#c0c0c0" }}>v{version}</Text>
         </div>
-      )}
 
-      {/* ── Document summary ─────────────────────────────── */}
-      <div style={{ borderTop: "1px solid #e0e0e0", paddingTop: "10px" }}>
+      </div>
+
+      {/* ── Document summary — anchored to bottom ────────── */}
+      <div style={{
+        flexShrink: 0,
+        margin: "0 12px 12px",
+        padding: "10px",
+        border: "1px solid #e0e0e0",
+        borderRadius: "4px",
+        backgroundColor: "#fafafa",
+      }}>
         <Text weight="semibold" size={200} style={{ display: "block", marginBottom: "6px" }}>
           Document
         </Text>
@@ -118,11 +161,6 @@ export function TabHome({ profiles, profilesLoading, profileError, selectedName,
         ) : summary ? (
           <SummaryTable summary={summary} />
         ) : null}
-      </div>
-
-      {/* ── Version ──────────────────────────────────────────── */}
-      <div style={{ marginTop: "auto", paddingTop: "12px", textAlign: "right" }}>
-        <Text size={100} style={{ color: "#c0c0c0" }}>v{version}</Text>
       </div>
 
     </div>

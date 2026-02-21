@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button, Checkbox, Spinner } from "@fluentui/react-components";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
-import { Profile } from "../../integrations/api/configClient";
+import { Profile, GeneralButton } from "../../integrations/api/configClient";
 import { getBodyText } from "../../integrations/word/documentTools";
 import { anonymize } from "../../integrations/api/presidioClient";
 
@@ -14,17 +14,14 @@ type SendState =
 
 const TEST_PROMPT = "";
 
-const PROMPT_SUMMARISE =
-  "Please provide a concise summary of the document, highlighting the key points and main conclusions.";
-
-const PROMPT_RESEARCH =
-  "Please research the main topics covered in this document and provide relevant background information, context, and important considerations.";
-
 interface TabAIProps {
   selectedProfile: Profile | undefined;
+  selectedDocTypeContext: string | undefined;
+  generalButtons: GeneralButton[];
+  buttonColour: string;
 }
 
-export function TabAI({ selectedProfile }: TabAIProps): React.ReactElement {
+export function TabAI({ selectedProfile, selectedDocTypeContext, generalButtons, buttonColour }: TabAIProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [includeObfuscated, setIncludeObfuscated] = useState(true);
   const [inputCollapsed, setInputCollapsed] = useState(false);
@@ -34,6 +31,10 @@ export function TabAI({ selectedProfile }: TabAIProps): React.ReactElement {
   const aiLabel = aiName
     ? `${aiName}${selectedProfile?.aiVersion ? ` (${selectedProfile.aiVersion})` : ""}`
     : "";
+
+  const combinedContext = [selectedProfile?.context, selectedDocTypeContext]
+    .filter(Boolean)
+    .join("\n\n") || undefined;
 
   async function send() {
     if (!prompt.trim() || !aiName) return;
@@ -46,7 +47,7 @@ export function TabAI({ selectedProfile }: TabAIProps): React.ReactElement {
         const result = await anonymize(bodyText);
         documentText = result.text;
       }
-      const text = await sendMessage(prompt.trim(), aiName, selectedProfile?.context, documentText);
+      const text = await sendMessage(prompt.trim(), aiName, combinedContext, documentText);
       setSendState({ status: "done", text });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -87,7 +88,7 @@ export function TabAI({ selectedProfile }: TabAIProps): React.ReactElement {
               </summary>
               <textarea
                 readOnly
-                value={selectedProfile?.context || "(no context set for this profile)"}
+                value={combinedContext || "(no context set)"}
                 rows={5}
                 style={{
                   marginTop: "4px",
@@ -107,14 +108,21 @@ export function TabAI({ selectedProfile }: TabAIProps): React.ReactElement {
             </details>
 
             {/* Quick-prompt buttons */}
-            <div style={{ display: "flex", gap: "6px" }}>
-              <Button size="small" appearance="outline" onClick={() => setPrompt(PROMPT_SUMMARISE)}>
-                Summarise
-              </Button>
-              <Button size="small" appearance="outline" onClick={() => setPrompt(PROMPT_RESEARCH)}>
-                Research
-              </Button>
-            </div>
+            {generalButtons.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {generalButtons.map((btn) => (
+                  <Button
+                    key={btn.name}
+                    size="small"
+                    appearance="outline"
+                    style={{ backgroundColor: buttonColour }}
+                    onClick={() => setPrompt(btn.context)}
+                  >
+                    {btn.name}
+                  </Button>
+                ))}
+              </div>
+            )}
 
             {/* Question */}
             <details open style={{ fontSize: "12px" }}>

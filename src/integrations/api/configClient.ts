@@ -16,6 +16,36 @@ export async function fetchProfiles(): Promise<Profile[]> {
   return data.profiles;
 }
 
+export interface DocType {
+  name: string;
+  description: string;
+  context: string;
+}
+
+export async function fetchDocTypes(): Promise<DocType[]> {
+  const res = await fetch(`${AI_SERVER}/config/doctypes`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json() as { docTypes: DocType[] };
+  return data.docTypes;
+}
+
+export interface GeneralButton {
+  name: string;
+  description: string;
+  context: string;
+}
+
+export interface GeneralButtons {
+  buttonColour: string;
+  buttons: GeneralButton[];
+}
+
+export async function fetchGeneralButtons(): Promise<GeneralButtons> {
+  const res = await fetch(`${AI_SERVER}/config/buttons`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json() as Promise<GeneralButtons>;
+}
+
 export interface ConfigMessage {
   level: "info" | "warning" | "error";
   text: string;

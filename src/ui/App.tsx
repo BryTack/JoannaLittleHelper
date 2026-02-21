@@ -12,7 +12,7 @@ import { TabHome } from "./tabs/TabHome";
 import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabAI } from "./tabs/TabAI";
 import { TabConfig } from "./tabs/TabConfig";
-import { fetchConfigValidation, ConfigState, fetchProfiles, Profile } from "../integrations/api/configClient";
+import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType } from "../integrations/api/configClient";
 
 type TabId = "home" | "config" | "obfuscate" | "ai";
 
@@ -25,6 +25,12 @@ export function App(): React.ReactElement {
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string>("");
+
+  const [generalButtons, setGeneralButtons] = useState<GeneralButton[]>([]);
+  const [buttonColour, setButtonColour] = useState("#ebebeb");
+
+  const [docTypes, setDocTypes] = useState<DocType[]>([]);
+  const [selectedDocTypeName, setSelectedDocTypeName] = useState<string>("");
 
   const runValidation = useCallback(async () => {
     setConfigState({ status: "loading" });
@@ -45,6 +51,20 @@ export function App(): React.ReactElement {
       })
       .catch((e: Error) => setProfileError(e.message))
       .finally(() => setProfilesLoading(false));
+
+    fetchGeneralButtons()
+      .then((gb) => {
+        setGeneralButtons(gb.buttons);
+        setButtonColour(gb.buttonColour);
+      })
+      .catch(() => { /* use defaults */ });
+
+    fetchDocTypes()
+      .then((dt) => {
+        setDocTypes(dt);
+        if (dt.length > 0) setSelectedDocTypeName(dt[0].name);
+      })
+      .catch(() => { /* leave empty */ });
   }, [runValidation]);
 
   const configHasIssues =
@@ -52,6 +72,7 @@ export function App(): React.ReactElement {
     (configState.status === "done" && !configState.validation.valid);
 
   const selectedProfile = profiles.find((p) => p.name === selectedProfileName);
+  const selectedDocType = docTypes.find((dt) => dt.name === selectedDocTypeName);
 
   // Helper: wrapper that keeps a tab mounted but invisible when inactive,
   // preserving all component state across tab switches.
@@ -114,9 +135,12 @@ export function App(): React.ReactElement {
             profileError={profileError}
             selectedName={selectedProfileName}
             onSelectName={setSelectedProfileName}
+            docTypes={docTypes}
+            selectedDocTypeName={selectedDocTypeName}
+            onSelectDocTypeName={setSelectedDocTypeName}
           />)}
           {tabPane("obfuscate", <TabObfuscate />)}
-          {tabPane("ai", <TabAI selectedProfile={selectedProfile} />)}
+          {tabPane("ai", <TabAI selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={generalButtons} buttonColour={buttonColour} />)}
           {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runValidation} />)}
         </div>
     </FluentProvider>

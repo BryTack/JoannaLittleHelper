@@ -33,7 +33,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, "config.xml");
 const PARSER_OPTIONS = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
-  isArray: (tagName) => ["AI", "Profile"].includes(tagName),
+  isArray: (tagName) => ["AI", "Profile", "Button", "DocType"].includes(tagName),
   allowBooleanAttributes: true,
   ignoreDeclaration: true,
   commentPropName: "#comment",
@@ -226,9 +226,125 @@ async function validate() {
     // Step 17: <ai> must reference a defined AI
     if (profile.ai && !validAiNames.includes(String(profile.ai))) {
       messages.push({
-        level: "error",
+        level: "warning",
         text: `Profiles > ${profileLabel} > ai: '${profile.ai}' is not defined in AIs`,
       });
+    }
+  }
+
+  // ── GROUP 4: GENERAL BUTTONS ──────────────────────────────────────────────
+
+  // Step 18: <GeneralButtons> exists with 'Button Colour' attribute
+  if (config.JLHConfig.GeneralButtons === undefined || config.JLHConfig.GeneralButtons === "") {
+    config.JLHConfig.GeneralButtons = { "@_Button Colour": "#ebebeb" };
+    dirty = true;
+    messages.push({ level: "info", text: "<GeneralButtons> section added to config" });
+  } else {
+    if (config.JLHConfig.GeneralButtons["@_Button Colour"] === undefined) {
+      config.JLHConfig.GeneralButtons["@_Button Colour"] = "#ebebeb";
+      dirty = true;
+      messages.push({ level: "warning", text: "<GeneralButtons> Button Colour attribute missing — set to default (#ebebeb)" });
+    }
+  }
+
+  // Normalise: ensure Button is always an array
+  if (config.JLHConfig.GeneralButtons.Button === undefined) config.JLHConfig.GeneralButtons.Button = [];
+  if (!Array.isArray(config.JLHConfig.GeneralButtons.Button)) {
+    config.JLHConfig.GeneralButtons.Button = [config.JLHConfig.GeneralButtons.Button];
+  }
+
+  // Step 19: At least one <Button> must exist
+  if (config.JLHConfig.GeneralButtons.Button.length === 0) {
+    config.JLHConfig.GeneralButtons.Button.push({
+      "@_name": "Summarise",
+      description: "Summarises the document into a short overview of the key points.",
+      context: "Summarise the following document concisely, highlighting the key points, main arguments, and any important conclusions. Keep the summary to 3–5 short paragraphs.",
+    });
+    dirty = true;
+    messages.push({ level: "info", text: "GeneralButtons > Summarise button added as default reference entry" });
+  }
+
+  // Steps 20–22: Check fields of each <Button>
+  for (let i = 0; i < config.JLHConfig.GeneralButtons.Button.length; i++) {
+    const btn = config.JLHConfig.GeneralButtons.Button[i];
+    const btnLabel = btn["@_name"] ? `Button '${btn["@_name"]}'` : `Button[${i + 1}]`;
+
+    // Step 20: name attribute
+    if (btn["@_name"] === undefined) {
+      btn["@_name"] = "";
+      dirty = true;
+    }
+    if (!btn["@_name"]) {
+      messages.push({ level: "warning", text: `GeneralButtons > ${btnLabel} > name attribute: missing` });
+    }
+
+    // Step 21: description — optional, add silently if absent
+    if (btn.description === undefined) {
+      btn.description = "";
+      dirty = true;
+    }
+
+    // Step 22: context — required, warn if blank
+    if (btn.context === undefined) {
+      btn.context = "";
+      dirty = true;
+      messages.push({ level: "warning", text: `GeneralButtons > ${btnLabel} > context: needs a value` });
+    } else if (btn.context === "" || btn.context === null) {
+      messages.push({ level: "warning", text: `GeneralButtons > ${btnLabel} > context: needs a value` });
+    }
+  }
+
+  // ── GROUP 5: DOC TYPES ────────────────────────────────────────────────────
+
+  // Step 23: <DocTypes> exists
+  if (config.JLHConfig.DocTypes === undefined || config.JLHConfig.DocTypes === "") {
+    config.JLHConfig.DocTypes = { DocType: [] };
+    dirty = true;
+    messages.push({ level: "info", text: "<DocTypes> section added to config" });
+  }
+
+  // Normalise: ensure DocType is always an array
+  if (!config.JLHConfig.DocTypes) config.JLHConfig.DocTypes = {};
+  if (config.JLHConfig.DocTypes.DocType === undefined) config.JLHConfig.DocTypes.DocType = [];
+  if (!Array.isArray(config.JLHConfig.DocTypes.DocType)) {
+    config.JLHConfig.DocTypes.DocType = [config.JLHConfig.DocTypes.DocType];
+  }
+
+  // Step 24: At least one <DocType> must exist
+  if (config.JLHConfig.DocTypes.DocType.length === 0) {
+    config.JLHConfig.DocTypes.DocType.push({
+      "@_name": "General",
+      description: "General documents that do not match any specific document type.",
+      context: "",
+    });
+    dirty = true;
+    messages.push({ level: "info", text: "DocTypes > General: added as default reference entry" });
+  }
+
+  // Steps 25–27: Check fields of each <DocType>
+  for (let i = 0; i < config.JLHConfig.DocTypes.DocType.length; i++) {
+    const dt = config.JLHConfig.DocTypes.DocType[i];
+    const dtLabel = dt["@_name"] ? `DocType '${dt["@_name"]}'` : `DocType[${i + 1}]`;
+
+    // Step 25: name attribute — required, warn if missing
+    if (dt["@_name"] === undefined) {
+      dt["@_name"] = "";
+      dirty = true;
+    }
+    if (!dt["@_name"]) {
+      messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > name attribute: missing` });
+    }
+
+    // Step 26: description — optional, add silently if absent
+    if (dt.description === undefined) {
+      dt.description = "";
+      dirty = true;
+    }
+
+    // Step 27: context — optional, empty allowed; add silently if absent
+    if (dt.context === undefined) {
+      dt.context = "";
+      dirty = true;
     }
   }
 
@@ -250,6 +366,27 @@ function readConfig() {
     const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
     const config = parser.parse(xmlText);
     return config.JLHConfig?.AIs?.AI ?? [];
+  } catch {
+    return null;
+  }
+}
+
+// Return GeneralButtons config: button colour and button list
+function readGeneralButtons() {
+  if (!fs.existsSync(CONFIG_FILE)) return null;
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    const gb = config.JLHConfig?.GeneralButtons;
+    if (!gb) return null;
+    const buttonColour = gb["@_Button Colour"] || "#ebebeb";
+    const raw = gb.Button ?? [];
+    const buttons = (Array.isArray(raw) ? raw : [raw]).map((b) => ({
+      name: b["@_name"] || "",
+      description: b.description || "",
+      context: b.context || "",
+    }));
+    return { buttonColour, buttons };
   } catch {
     return null;
   }
@@ -284,4 +421,21 @@ function readProfiles() {
   }
 }
 
-module.exports = { validate, readConfig, readProfiles, CONFIG_FILE, CONFIG_DIR };
+// Return all DocTypes as a flat array
+function readDocTypes() {
+  if (!fs.existsSync(CONFIG_FILE)) return null;
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    const raw = config.JLHConfig?.DocTypes?.DocType ?? [];
+    return (Array.isArray(raw) ? raw : [raw]).map((dt) => ({
+      name: dt["@_name"] || "",
+      description: dt.description || "",
+      context: dt.context || "",
+    }));
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, CONFIG_FILE, CONFIG_DIR };
