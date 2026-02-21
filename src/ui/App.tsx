@@ -10,11 +10,12 @@ import {
 import { Settings20Regular } from "@fluentui/react-icons";
 import { TabHome } from "./tabs/TabHome";
 import { TabObfuscate } from "./tabs/TabObfuscate";
-import { TabAI } from "./tabs/TabAI";
+import { TabAIDocument } from "./tabs/TabAI";
+import { TabAIGeneral } from "./tabs/TabAIGeneral";
 import { TabConfig } from "./tabs/TabConfig";
 import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType } from "../integrations/api/configClient";
 
-type TabId = "home" | "config" | "obfuscate" | "ai";
+type TabId = "home" | "config" | "obfuscate" | "ai-document" | "ai-general";
 
 export function App(): React.ReactElement {
   const [configVisible, setConfigVisible] = useState(false);
@@ -95,7 +96,8 @@ export function App(): React.ReactElement {
           >
             <Tab value="home">Home</Tab>
             <Tab value="obfuscate">Obfuscate</Tab>
-            <Tab value="ai">AI</Tab>
+            <Tab value="ai-document">AI Document</Tab>
+            <Tab value="ai-general">AI General</Tab>
             {configVisible && <Tab value="config">Config</Tab>}
           </TabList>
           <Tooltip content={configVisible ? "Hide config" : "Show config"} relationship="label">
@@ -140,7 +142,8 @@ export function App(): React.ReactElement {
             onSelectDocTypeName={setSelectedDocTypeName}
           />)}
           {tabPane("obfuscate", <TabObfuscate />)}
-          {tabPane("ai", <TabAI selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={generalButtons} buttonColour={buttonColour} />)}
+          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={generalButtons} buttonColour={buttonColour} />)}
+          {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} />)}
           {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runValidation} />)}
         </div>
     </FluentProvider>

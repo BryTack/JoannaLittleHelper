@@ -3,8 +3,6 @@ import { Button, Spinner } from "@fluentui/react-components";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
 import { Profile, GeneralButton } from "../../integrations/api/configClient";
-import { getBodyText } from "../../integrations/word/documentTools";
-import { anonymize } from "../../integrations/api/presidioClient";
 
 type SendState =
   | { status: "idle" }
@@ -14,36 +12,26 @@ type SendState =
 
 const TEST_PROMPT = "";
 
-interface TabAIDocumentProps {
+interface TabAIGeneralProps {
   selectedProfile: Profile | undefined;
-  selectedDocTypeContext: string | undefined;
   generalButtons: GeneralButton[];
   buttonColour: string;
 }
 
-export function TabAIDocument({ selectedProfile, selectedDocTypeContext, generalButtons, buttonColour }: TabAIDocumentProps): React.ReactElement {
+export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour }: TabAIGeneralProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
 
   const aiName = selectedProfile?.ai ?? "";
-  const aiLabel = aiName
-    ? `${aiName}${selectedProfile?.aiVersion ? ` (${selectedProfile.aiVersion})` : ""}`
-    : "";
-
-  const combinedContext = [selectedProfile?.context, selectedDocTypeContext]
-    .filter(Boolean)
-    .join("\n\n") || undefined;
+  const context = selectedProfile?.context || undefined;
 
   async function send() {
     if (!prompt.trim() || !aiName) return;
     setSendState({ status: "loading" });
     setInputCollapsed(true);
     try {
-      const bodyText = await getBodyText();
-      const result = await anonymize(bodyText);
-      const documentText = result.text;
-      const text = await sendMessage(prompt.trim(), aiName, combinedContext, documentText);
+      const text = await sendMessage(prompt.trim(), aiName, context);
       setSendState({ status: "done", text });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -84,7 +72,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
               </summary>
               <textarea
                 readOnly
-                value={combinedContext || "(no context set)"}
+                value={context || "(no context set)"}
                 rows={5}
                 style={{
                   marginTop: "4px",
@@ -148,7 +136,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
         )}
       </div>
 
-      {/* ── Ask + checkbox row ────────────────────────────────── */}
+      {/* ── Ask row ───────────────────────────────────────────── */}
       {(() => {
         const isDisabled = sendState.status === "loading" || !prompt.trim() || !aiName;
         return (
