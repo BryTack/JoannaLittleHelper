@@ -74,6 +74,7 @@ export function App(): React.ReactElement {
 
   const selectedProfile = profiles.find((p) => p.name === selectedProfileName);
   const selectedDocType = docTypes.find((dt) => dt.name === selectedDocTypeName);
+  const documentButtons = [...generalButtons, ...(selectedDocType?.buttons ?? [])];
 
   // Helper: wrapper that keeps a tab mounted but invisible when inactive,
   // preserving all component state across tab switches.
@@ -142,7 +143,7 @@ export function App(): React.ReactElement {
             onSelectDocTypeName={setSelectedDocTypeName}
           />)}
           {tabPane("obfuscate", <TabObfuscate />)}
-          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={generalButtons} buttonColour={buttonColour} />)}
+          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={documentButtons} buttonColour={buttonColour} />)}
           {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} />)}
           {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runValidation} />)}
         </div>

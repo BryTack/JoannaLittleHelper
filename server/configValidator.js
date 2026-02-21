@@ -234,16 +234,16 @@ async function validate() {
 
   // ── GROUP 4: GENERAL BUTTONS ──────────────────────────────────────────────
 
-  // Step 18: <GeneralButtons> exists with 'Button Colour' attribute
+  // Step 18: <GeneralButtons> exists with 'buttonColour' attribute
   if (config.JLHConfig.GeneralButtons === undefined || config.JLHConfig.GeneralButtons === "") {
-    config.JLHConfig.GeneralButtons = { "@_Button Colour": "#ebebeb" };
+    config.JLHConfig.GeneralButtons = { "@_buttonColour": "#ebebeb" };
     dirty = true;
     messages.push({ level: "info", text: "<GeneralButtons> section added to config" });
   } else {
-    if (config.JLHConfig.GeneralButtons["@_Button Colour"] === undefined) {
-      config.JLHConfig.GeneralButtons["@_Button Colour"] = "#ebebeb";
+    if (config.JLHConfig.GeneralButtons["@_buttonColour"] === undefined) {
+      config.JLHConfig.GeneralButtons["@_buttonColour"] = "#ebebeb";
       dirty = true;
-      messages.push({ level: "warning", text: "<GeneralButtons> Button Colour attribute missing — set to default (#ebebeb)" });
+      messages.push({ level: "warning", text: "<GeneralButtons> buttonColour attribute missing — set to default (#ebebeb)" });
     }
   }
 
@@ -346,6 +346,39 @@ async function validate() {
       dt.context = "";
       dirty = true;
     }
+
+    // Steps 28–30: Check buttons within this <DocType> (zero or more allowed)
+    if (dt.Button === undefined) dt.Button = [];
+    if (!Array.isArray(dt.Button)) dt.Button = [dt.Button];
+
+    for (let j = 0; j < dt.Button.length; j++) {
+      const btn = dt.Button[j];
+      const btnLabel = btn["@_name"] ? `Button '${btn["@_name"]}'` : `Button[${j + 1}]`;
+
+      // Step 28: name attribute — required, warn if missing
+      if (btn["@_name"] === undefined) {
+        btn["@_name"] = "";
+        dirty = true;
+      }
+      if (!btn["@_name"]) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${btnLabel} > name attribute: missing` });
+      }
+
+      // Step 29: description — optional, add silently if absent
+      if (btn.description === undefined) {
+        btn.description = "";
+        dirty = true;
+      }
+
+      // Step 30: context — required, warn if blank
+      if (btn.context === undefined) {
+        btn.context = "";
+        dirty = true;
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${btnLabel} > context: needs a value` });
+      } else if (btn.context === "" || btn.context === null) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${btnLabel} > context: needs a value` });
+      }
+    }
   }
 
   // ── WRITE BACK IF MODIFIED ────────────────────────────────────────────────
@@ -379,13 +412,14 @@ function readGeneralButtons() {
     const config = parser.parse(xmlText);
     const gb = config.JLHConfig?.GeneralButtons;
     if (!gb) return null;
-    const buttonColour = gb["@_Button Colour"] || "#ebebeb";
+    const buttonColour = gb["@_buttonColour"] || "#ebebeb";
     const raw = gb.Button ?? [];
-    const buttons = (Array.isArray(raw) ? raw : [raw]).map((b) => ({
-      name: b["@_name"] || "",
-      description: b.description || "",
-      context: b.context || "",
-    }));
+    const buttons = (Array.isArray(raw) ? raw : [raw]).map((b) => {
+      const btn = { name: b["@_name"] || "", description: b.description || "", context: b.context || "" };
+      const override = b["@_buttonColour"];
+      if (override) btn.colour = override;
+      return btn;
+    });
     return { buttonColour, buttons };
   } catch {
     return null;
@@ -428,11 +462,22 @@ function readDocTypes() {
     const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
     const config = parser.parse(xmlText);
     const raw = config.JLHConfig?.DocTypes?.DocType ?? [];
-    return (Array.isArray(raw) ? raw : [raw]).map((dt) => ({
-      name: dt["@_name"] || "",
-      description: dt.description || "",
-      context: dt.context || "",
-    }));
+    return (Array.isArray(raw) ? raw : [raw]).map((dt) => {
+      const docTypeColour = dt["@_buttonColour"] || null;
+      const rawBtns = dt.Button ?? [];
+      const buttons = (Array.isArray(rawBtns) ? rawBtns : [rawBtns]).map((b) => {
+        const btn = { name: b["@_name"] || "", description: b.description || "", context: b.context || "" };
+        const colour = b["@_buttonColour"] || docTypeColour;
+        if (colour) btn.colour = colour;
+        return btn;
+      });
+      return {
+        name: dt["@_name"] || "",
+        description: dt.description || "",
+        context: dt.context || "",
+        buttons,
+      };
+    });
   } catch {
     return null;
   }

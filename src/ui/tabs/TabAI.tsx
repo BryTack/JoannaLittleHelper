@@ -111,7 +111,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
                     key={btn.name}
                     size="small"
                     appearance="outline"
-                    style={{ backgroundColor: buttonColour }}
+                    style={{ backgroundColor: btn.colour ?? buttonColour }}
                     onClick={() => setPrompt(btn.context)}
                   >
                     {btn.name}
