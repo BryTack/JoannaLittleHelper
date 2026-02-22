@@ -481,24 +481,44 @@ async function validate() {
     config.JLHConfig.Instructions.Instruction = [config.JLHConfig.Instructions.Instruction];
   }
 
-  // Steps 39–42: Validate each <Instruction>
+  // Step 39: At least one <Instruction> — add two defaults if none defined
+  if (config.JLHConfig.Instructions.Instruction.length === 0) {
+    config.JLHConfig.Instructions.Instruction.push(
+      {
+        "@_Name": "Format",
+        "@_Description": "Ask the AI to return its response as Markdown",
+        "@_Default": "true",
+        "#text": "Return your response in MarkDown format.",
+      },
+      {
+        "@_Name": "Give Para",
+        "@_Description": "Ask the AI to cite paragraph numbers for exact quotes",
+        "@_Default": "true",
+        "#text": "When your response references an exact phrase or sentence also include the paragraph number. Use format '[[Para Number]]'",
+      },
+    );
+    dirty = true;
+    messages.push({ level: "info", text: "Instructions > Format and Give Para added as default reference entries" });
+  }
+
+  // Steps 40–43: Validate each <Instruction>
   for (let i = 0; i < config.JLHConfig.Instructions.Instruction.length; i++) {
     const inst = config.JLHConfig.Instructions.Instruction[i];
     const instLabel = inst["@_Name"] ? `Instruction '${inst["@_Name"]}'` : `Instruction[${i + 1}]`;
 
-    // Step 39: Name attribute — required
+    // Step 40: Name attribute — required
     if (!inst["@_Name"]) {
       messages.push({ level: "warning", text: `Instructions > ${instLabel} > Name attribute: missing` });
     }
 
-    // Step 40: Description — optional, no validation needed
+    // Step 41: Description — optional, no validation needed
 
-    // Step 41: Instruction text content — required
+    // Step 42: Instruction text content — required
     if (!String(inst["#text"] || "").trim()) {
       messages.push({ level: "warning", text: `Instructions > ${instLabel} > instruction text: missing` });
     }
 
-    // Step 42: Default — optional; if present must be "true" or "false"
+    // Step 43: Default — optional; if present must be "true" or "false"
     if (inst["@_Default"] !== undefined) {
       const d = String(inst["@_Default"]).toLowerCase();
       if (d !== "true" && d !== "false") {
