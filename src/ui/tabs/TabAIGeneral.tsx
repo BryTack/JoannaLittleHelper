@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Button, Spinner } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
+import { MarkdownResponse } from "../components/MarkdownResponse";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
 import { Profile, GeneralButton } from "../../integrations/api/configClient";
@@ -165,24 +166,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour }: 
 
       {/* ── Response ──────────────────────────────────────────── */}
       {sendState.status === "done" && (
-        <textarea
-          readOnly
-          value={sendState.text}
-          style={{
-            flex: 1,
-            resize: "none",
-            border: "1px solid #d0d0d0",
-            borderRadius: "4px",
-            padding: "8px",
-            fontSize: "12px",
-            fontFamily: "Segoe UI, sans-serif",
-            lineHeight: "1.5",
-            color: "#333",
-            backgroundColor: "#fafafa",
-            width: "100%",
-            boxSizing: "border-box",
-          }}
-        />
+        <MarkdownResponse text={sendState.text} />
       )}
 
     </div>
