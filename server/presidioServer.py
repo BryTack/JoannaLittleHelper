@@ -88,6 +88,41 @@ anonymizer = AnonymizerEngine()
 print(f"[Presidio] Ready on http://localhost:{PORT}", flush=True)
 
 
+def _build_custom_recognizers(rules):
+    """
+    Build per-request PatternRecognizer / DenyListRecognizer instances
+    from the custom rules supplied in the POST body.
+
+    Text rules with the same entity are grouped into a single DenyListRecognizer.
+    Each regex rule becomes its own PatternRecognizer.
+    """
+    recognizers = []
+    deny_groups = {}  # entity -> [values]
+    for rule in rules:
+        match_type = rule.get("match", "")
+        entity = rule.get("entity", "")
+        if not match_type or not entity:
+            continue
+        if match_type == "text":
+            value = rule.get("value", "")
+            if value:
+                deny_groups.setdefault(entity, []).append(value)
+        elif match_type == "regex":
+            pattern_str = rule.get("pattern", "")
+            if pattern_str:
+                score = float(rule.get("score", 0.85))
+                recognizers.append(PatternRecognizer(
+                    supported_entity=entity,
+                    patterns=[Pattern(name=f"custom_{entity.lower()}", regex=pattern_str, score=score)],
+                ))
+    for entity, values in deny_groups.items():
+        recognizers.append(PatternRecognizer(
+            supported_entity=entity,
+            deny_list=values,
+        ))
+    return recognizers
+
+
 def _remove_overlaps(results):
     """Remove overlapping entities, keeping the highest-confidence match per region."""
     sorted_r = sorted(results, key=lambda x: (-x.score, -(x.end - x.start)))
@@ -100,17 +135,25 @@ def _remove_overlaps(results):
     return kept
 
 
-def _anonymize_consistent(text, results):
+def _anonymize_consistent(text, results, custom_replacements=None):
     """
-    Replace detected entities with consistent numbered labels per type.
+    Replace detected entities with consistent labels per type.
 
     The same source text always gets the same label within a request:
       John Smith -> <PERSON_1>, Jane Doe -> <PERSON_2>, John Smith -> <PERSON_1>
+
+    custom_replacements: dict mapping entity_type -> replacement string.
+      - "mask"         -> replace each character with *  (same length as original)
+      - any other str  -> use that string as a fixed label (no counter)
+      - absent / None  -> standard <ENTITY_N> numbered labels
 
     Returns (anonymised_text, entities) where entities is a list of
     {type, original, label, score} — one entry per occurrence, in document order.
     The label_map is discarded after the request; the output cannot be reversed.
     """
+    if custom_replacements is None:
+        custom_replacements = {}
+
     clean = _remove_overlaps(results)
     clean_sorted = sorted(clean, key=lambda x: x.start)
 
@@ -123,8 +166,14 @@ def _anonymize_consistent(text, results):
         original = text[r.start:r.end]
         key = (r.entity_type, original.lower().strip())
         if key not in label_map:
-            counters[r.entity_type] = counters.get(r.entity_type, 0) + 1
-            label_map[key] = f"<{r.entity_type}_{counters[r.entity_type]}>"
+            repl = custom_replacements.get(r.entity_type)
+            if repl == "mask":
+                label_map[key] = "*" * len(original)
+            elif repl:
+                label_map[key] = repl
+            else:
+                counters[r.entity_type] = counters.get(r.entity_type, 0) + 1
+                label_map[key] = f"<{r.entity_type}_{counters[r.entity_type]}>"
         entity_info.append({
             "type": r.entity_type,
             "original": original,
@@ -161,9 +210,27 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             text = body.get("text", "")
             language = body.get("language", "en")
+            custom_rules = body.get("custom_rules", [])
+
+            # Build per-request custom recognizers and replacement map
+            custom_recognizers = _build_custom_recognizers(custom_rules)
+            custom_replacements = {
+                rule["entity"]: rule["replacement"]
+                for rule in custom_rules
+                if rule.get("entity") and rule.get("replacement") is not None
+            }
 
             results = analyzer.analyze(text=text, language=language, score_threshold=SCORE_THRESHOLD)
-            anonymised_text, entities = _anonymize_consistent(text, results)
+
+            # Run custom recognizers directly — pattern/deny-list based, no NLP artifacts needed
+            for rec in custom_recognizers:
+                try:
+                    extra = rec.analyze(text=text, entities=rec.supported_entities, nlp_artifacts=None)
+                    results.extend([r for r in extra if r.score >= SCORE_THRESHOLD])
+                except Exception:
+                    pass
+
+            anonymised_text, entities = _anonymize_consistent(text, results, custom_replacements)
 
             self._send_json(200, {"text": anonymised_text, "entities": entities})
 

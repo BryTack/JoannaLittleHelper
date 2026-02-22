@@ -33,7 +33,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, "config.xml");
 const PARSER_OPTIONS = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
-  isArray: (tagName) => ["AI", "Profile", "Button", "DocType"].includes(tagName),
+  isArray: (tagName) => ["AI", "Profile", "Button", "DocType", "Obfuscate"].includes(tagName),
   allowBooleanAttributes: true,
   ignoreDeclaration: true,
   commentPropName: "#comment",
@@ -381,6 +381,60 @@ async function validate() {
     }
   }
 
+  // ── GROUP 6: OBFUSCATES ───────────────────────────────────────────────────
+
+  // Step 31: <Obfuscates> must exist
+  if (config.JLHConfig.Obfuscates === undefined || config.JLHConfig.Obfuscates === "") {
+    config.JLHConfig.Obfuscates = {};
+    dirty = true;
+    messages.push({ level: "info", text: "<Obfuscates> section added to config" });
+  }
+
+  // Normalise: ensure Obfuscate is always an array
+  if (!config.JLHConfig.Obfuscates) config.JLHConfig.Obfuscates = {};
+  if (config.JLHConfig.Obfuscates.Obfuscate === undefined) config.JLHConfig.Obfuscates.Obfuscate = [];
+  if (!Array.isArray(config.JLHConfig.Obfuscates.Obfuscate)) {
+    config.JLHConfig.Obfuscates.Obfuscate = [config.JLHConfig.Obfuscates.Obfuscate];
+  }
+
+  // Steps 32–37: Validate each <Obfuscate>
+  for (let i = 0; i < config.JLHConfig.Obfuscates.Obfuscate.length; i++) {
+    const rule = config.JLHConfig.Obfuscates.Obfuscate[i];
+    const ruleLabel = `Obfuscate[${i + 1}]`;
+
+    // Step 32: match attribute — required, must be "text" or "regex"
+    if (!rule["@_match"]) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > match attribute: missing (must be "text" or "regex")` });
+    } else if (!["text", "regex"].includes(rule["@_match"])) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > match: "${rule["@_match"]}" is not valid (must be "text" or "regex")` });
+    }
+
+    // Step 33: entity attribute — required, non-empty
+    if (!rule["@_entity"]) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > entity attribute: missing` });
+    }
+
+    // Step 34: value required when match="text"
+    if (rule["@_match"] === "text" && !rule["@_value"]) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > value attribute: required when match="text"` });
+    }
+
+    // Step 35: pattern required when match="regex"
+    if (rule["@_match"] === "regex" && !rule["@_pattern"]) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > pattern attribute: required when match="regex"` });
+    }
+
+    // Step 36: score (regex only) — if present, must be numeric 0–1
+    if (rule["@_score"] !== undefined) {
+      const s = parseFloat(rule["@_score"]);
+      if (isNaN(s) || s < 0 || s > 1) {
+        messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > score: must be a number between 0 and 1` });
+      }
+    }
+
+    // Step 37: replacement — optional, any string or "mask" — no validation needed
+  }
+
   // ── WRITE BACK IF MODIFIED ────────────────────────────────────────────────
 
   if (dirty) {
@@ -483,4 +537,30 @@ function readDocTypes() {
   }
 }
 
-module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, CONFIG_FILE, CONFIG_DIR };
+// Return all Obfuscate rules as a flat array of rule objects
+function readObfuscates() {
+  if (!fs.existsSync(CONFIG_FILE)) return [];
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    const raw = config.JLHConfig?.Obfuscates?.Obfuscate ?? [];
+    const items = Array.isArray(raw) ? raw : [raw];
+    return items
+      .map((item) => {
+        const rule = {
+          match: item["@_match"] || "",
+          entity: item["@_entity"] || "",
+        };
+        if (item["@_value"]       !== undefined) rule.value       = String(item["@_value"]);
+        if (item["@_pattern"]     !== undefined) rule.pattern     = String(item["@_pattern"]);
+        if (item["@_score"]       !== undefined) rule.score       = parseFloat(item["@_score"]);
+        if (item["@_replacement"] !== undefined) rule.replacement = String(item["@_replacement"]);
+        return rule;
+      })
+      .filter((r) => r.match && r.entity); // discard incomplete rules
+  } catch {
+    return [];
+  }
+}
+
+module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, CONFIG_FILE, CONFIG_DIR };

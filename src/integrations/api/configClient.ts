@@ -48,6 +48,22 @@ export async function fetchGeneralButtons(): Promise<GeneralButtons> {
   return res.json() as Promise<GeneralButtons>;
 }
 
+export interface ObfuscateRule {
+  match: "text" | "regex";
+  entity: string;
+  value?: string;
+  pattern?: string;
+  score?: number;
+  replacement?: string;
+}
+
+export async function fetchObfuscates(): Promise<ObfuscateRule[]> {
+  const res = await fetch(`${AI_SERVER}/config/obfuscates`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json() as { rules: ObfuscateRule[] };
+  return data.rules;
+}
+
 export interface ConfigMessage {
   level: "info" | "warning" | "error";
   text: string;
