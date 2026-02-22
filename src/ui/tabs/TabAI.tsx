@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Button, Spinner } from "@fluentui/react-components";
+import { Button, Spinner, Checkbox, Tooltip } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
 import { MarkdownResponse } from "../components/MarkdownResponse";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
-import { Profile, GeneralButton, ObfuscateRule } from "../../integrations/api/configClient";
+import { Profile, GeneralButton, ObfuscateRule, Instruction } from "../../integrations/api/configClient";
 import { getTextForAnonymization, getSelectedText } from "../../integrations/word/documentTools";
 import { anonymize } from "../../integrations/api/presidioClient";
 
@@ -22,13 +22,22 @@ interface TabAIDocumentProps {
   docTypeObfuscates: ObfuscateRule[];
   generalButtons: GeneralButton[];
   buttonColour: string;
+  instructions: Instruction[];
 }
 
-export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docTypeObfuscates, generalButtons, buttonColour }: TabAIDocumentProps): React.ReactElement {
+export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docTypeObfuscates, generalButtons, buttonColour, instructions }: TabAIDocumentProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [isSelectionOnly, setIsSelectionOnly] = useState(false);
+  const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
+    () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
+  );
+
+  // Reset checked state to defaults whenever the instruction list changes (e.g. Re-Load)
+  useEffect(() => {
+    setCheckedInstructions(new Set(instructions.filter((i) => i.default).map((i) => i.name)));
+  }, [instructions]);
 
   // Keep isSelectionOnly in sync with the live Word selection
   useEffect(() => {
@@ -47,7 +56,11 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
     ? `${aiName}${selectedProfile?.aiVersion ? ` (${selectedProfile.aiVersion})` : ""}`
     : "";
 
-  const combinedContext = [selectedProfile?.context, selectedDocTypeContext]
+  const checkedInstructionTexts = instructions
+    .filter((i) => checkedInstructions.has(i.name))
+    .map((i) => i.instruction);
+
+  const combinedContext = [selectedProfile?.context, selectedDocTypeContext, ...checkedInstructionTexts]
     .filter(Boolean)
     .join("\n\n") || undefined;
 
@@ -130,6 +143,35 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
                     onClick={() => setPrompt(btn.context)}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* Instructions */}
+            {instructions.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                {instructions.map((inst) => {
+                  const checkbox = (
+                    <Checkbox
+                      key={inst.name}
+                      label={inst.name}
+                      checked={checkedInstructions.has(inst.name)}
+                      onChange={(_, data) =>
+                        setCheckedInstructions((prev) => {
+                          const next = new Set(prev);
+                          if (data.checked) next.add(inst.name);
+                          else next.delete(inst.name);
+                          return next;
+                        })
+                      }
+                      style={{ fontSize: "12px" }}
+                    />
+                  );
+                  return inst.description ? (
+                    <Tooltip key={inst.name} content={inst.description} relationship="description">
+                      {checkbox}
+                    </Tooltip>
+                  ) : checkbox;
+                })}
               </div>
             )}
 

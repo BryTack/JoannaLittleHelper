@@ -65,6 +65,20 @@ export async function fetchObfuscates(): Promise<ObfuscateRule[]> {
   return data.rules;
 }
 
+export interface Instruction {
+  name: string;
+  description: string;
+  instruction: string;
+  default: boolean;
+}
+
+export async function fetchInstructions(): Promise<Instruction[]> {
+  const res = await fetch(`${AI_SERVER}/config/instructions`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json() as { instructions: Instruction[] };
+  return data.instructions;
+}
+
 export interface ConfigMessage {
   level: "info" | "warning" | "error";
   text: string;

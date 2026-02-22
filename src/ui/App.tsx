@@ -13,7 +13,7 @@ import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabAIDocument } from "./tabs/TabAI";
 import { TabAIGeneral } from "./tabs/TabAIGeneral";
 import { TabConfig } from "./tabs/TabConfig";
-import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType } from "../integrations/api/configClient";
+import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType, fetchInstructions, Instruction } from "../integrations/api/configClient";
 
 type TabId = "home" | "config" | "obfuscate" | "ai-document" | "ai-general";
 
@@ -32,6 +32,8 @@ export function App(): React.ReactElement {
 
   const [docTypes, setDocTypes] = useState<DocType[]>([]);
   const [selectedDocTypeName, setSelectedDocTypeName] = useState<string>("");
+
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
 
   // Document summary refresh
   const [summaryKey, setSummaryKey] = useState(0);
@@ -59,6 +61,9 @@ export function App(): React.ReactElement {
     fetchDocTypes()
       .then((dt) => { setDocTypes(dt); if (dt.length > 0) setSelectedDocTypeName((n) => n || dt[0].name); })
       .catch(() => {});
+    fetchInstructions()
+      .then(setInstructions)
+      .catch(() => {});
   }, [runValidation]);
 
   useEffect(() => {
@@ -84,6 +89,10 @@ export function App(): React.ReactElement {
         if (dt.length > 0) setSelectedDocTypeName(dt[0].name);
       })
       .catch(() => { /* leave empty */ });
+
+    fetchInstructions()
+      .then(setInstructions)
+      .catch(() => {});
   }, [runValidation]);
 
   // Keep ref in sync so Office callbacks can read current tab without stale closure
@@ -197,8 +206,8 @@ export function App(): React.ReactElement {
             summaryKey={summaryKey}
           />)}
           {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} docTypeObfuscates={selectedDocType?.obfuscates ?? []} />)}
-          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} />)}
-          {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} />)}
+          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} instructions={instructions} />)}
+          {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} instructions={instructions} />)}
           {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runReload} />)}
         </div>
     </FluentProvider>

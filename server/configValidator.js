@@ -33,7 +33,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, "config.xml");
 const PARSER_OPTIONS = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
-  isArray: (tagName) => ["AI", "Profile", "Button", "DocType", "Obfuscate"].includes(tagName),
+  isArray: (tagName) => ["AI", "Profile", "Button", "DocType", "Obfuscate", "Instruction"].includes(tagName),
   allowBooleanAttributes: true,
   ignoreDeclaration: true,
   commentPropName: "#comment",
@@ -465,6 +465,48 @@ async function validate() {
     // Step 37: replacement — optional, any string or "mask" — no validation needed
   }
 
+  // ── GROUP 7: INSTRUCTIONS ─────────────────────────────────────────────────
+
+  // Step 38: <Instructions> must exist
+  if (config.JLHConfig.Instructions === undefined || config.JLHConfig.Instructions === "") {
+    config.JLHConfig.Instructions = {};
+    dirty = true;
+    messages.push({ level: "info", text: "<Instructions> section added to config" });
+  }
+
+  // Normalise: ensure Instruction is always an array
+  if (!config.JLHConfig.Instructions) config.JLHConfig.Instructions = {};
+  if (config.JLHConfig.Instructions.Instruction === undefined) config.JLHConfig.Instructions.Instruction = [];
+  if (!Array.isArray(config.JLHConfig.Instructions.Instruction)) {
+    config.JLHConfig.Instructions.Instruction = [config.JLHConfig.Instructions.Instruction];
+  }
+
+  // Steps 39–42: Validate each <Instruction>
+  for (let i = 0; i < config.JLHConfig.Instructions.Instruction.length; i++) {
+    const inst = config.JLHConfig.Instructions.Instruction[i];
+    const instLabel = inst["@_Name"] ? `Instruction '${inst["@_Name"]}'` : `Instruction[${i + 1}]`;
+
+    // Step 39: Name attribute — required
+    if (!inst["@_Name"]) {
+      messages.push({ level: "warning", text: `Instructions > ${instLabel} > Name attribute: missing` });
+    }
+
+    // Step 40: Description — optional, no validation needed
+
+    // Step 41: Instruction text content — required
+    if (!String(inst["#text"] || "").trim()) {
+      messages.push({ level: "warning", text: `Instructions > ${instLabel} > instruction text: missing` });
+    }
+
+    // Step 42: Default — optional; if present must be "true" or "false"
+    if (inst["@_Default"] !== undefined) {
+      const d = String(inst["@_Default"]).toLowerCase();
+      if (d !== "true" && d !== "false") {
+        messages.push({ level: "warning", text: `Instructions > ${instLabel} > Default: must be "true" or "false"` });
+      }
+    }
+  }
+
   // ── WRITE BACK IF MODIFIED ────────────────────────────────────────────────
 
   if (dirty) {
@@ -605,4 +647,25 @@ function readObfuscates() {
   }
 }
 
-module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, CONFIG_FILE, CONFIG_DIR };
+// Return all Instructions as a flat array
+function readInstructions() {
+  if (!fs.existsSync(CONFIG_FILE)) return [];
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    const raw = config.JLHConfig?.Instructions?.Instruction ?? [];
+    const items = Array.isArray(raw) ? raw : [raw];
+    return items
+      .map((item) => ({
+        name:        item["@_Name"]        || "",
+        description: item["@_Description"] || "",
+        instruction: String(item["#text"]  || "").trim(),
+        default:     item["@_Default"] === "true" || item["@_Default"] === true,
+      }))
+      .filter((i) => i.name && i.instruction);
+  } catch {
+    return [];
+  }
+}
+
+module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, readInstructions, CONFIG_FILE, CONFIG_DIR };

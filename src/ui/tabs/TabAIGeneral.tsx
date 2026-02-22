@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { Button, Spinner } from "@fluentui/react-components";
+import React, { useState, useEffect } from "react";
+import { Button, Spinner, Checkbox, Tooltip } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
 import { MarkdownResponse } from "../components/MarkdownResponse";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
-import { Profile, GeneralButton } from "../../integrations/api/configClient";
+import { Profile, GeneralButton, Instruction } from "../../integrations/api/configClient";
 
 type SendState =
   | { status: "idle" }
@@ -18,15 +18,26 @@ interface TabAIGeneralProps {
   selectedProfile: Profile | undefined;
   generalButtons: GeneralButton[];
   buttonColour: string;
+  instructions: Instruction[];
 }
 
-export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour }: TabAIGeneralProps): React.ReactElement {
+export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, instructions }: TabAIGeneralProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
+  const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
+    () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
+  );
+
+  useEffect(() => {
+    setCheckedInstructions(new Set(instructions.filter((i) => i.default).map((i) => i.name)));
+  }, [instructions]);
 
   const aiName = selectedProfile?.ai ?? "";
-  const context = selectedProfile?.context || undefined;
+  const checkedInstructionTexts = instructions
+    .filter((i) => checkedInstructions.has(i.name))
+    .map((i) => i.instruction);
+  const context = [selectedProfile?.context, ...checkedInstructionTexts].filter(Boolean).join("\n\n") || undefined;
 
   async function send() {
     if (!prompt.trim() || !aiName) return;
@@ -104,6 +115,35 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour }: 
                     onClick={() => setPrompt(btn.context)}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* Instructions */}
+            {instructions.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                {instructions.map((inst) => {
+                  const checkbox = (
+                    <Checkbox
+                      key={inst.name}
+                      label={inst.name}
+                      checked={checkedInstructions.has(inst.name)}
+                      onChange={(_, data) =>
+                        setCheckedInstructions((prev) => {
+                          const next = new Set(prev);
+                          if (data.checked) next.add(inst.name);
+                          else next.delete(inst.name);
+                          return next;
+                        })
+                      }
+                      style={{ fontSize: "12px" }}
+                    />
+                  );
+                  return inst.description ? (
+                    <Tooltip key={inst.name} content={inst.description} relationship="description">
+                      {checkbox}
+                    </Tooltip>
+                  ) : checkbox;
+                })}
               </div>
             )}
 

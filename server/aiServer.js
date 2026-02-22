@@ -7,7 +7,7 @@
  */
 
 const http = require("http");
-const { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, CONFIG_FILE } = require("./configValidator");
+const { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, readInstructions, CONFIG_FILE } = require("./configValidator");
 
 const PORT = 3003;
 const ALLOWED_ORIGIN = "https://localhost:3000";
@@ -153,6 +153,13 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && req.url === "/config/obfuscates") {
     const rules = readObfuscates();
     sendJson(res, 200, { rules });
+    return;
+  }
+
+  // GET /config/instructions — return instruction list
+  if (req.method === "GET" && req.url === "/config/instructions") {
+    const instructions = readInstructions();
+    sendJson(res, 200, { instructions });
     return;
   }
 
