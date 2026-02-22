@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Tooltip } from "@fluentui/react-components";
+import { Button } from "@fluentui/react-components";
 import { GeneralButton } from "../../integrations/api/configClient";
 
 interface QuickButtonProps {
@@ -10,28 +10,20 @@ interface QuickButtonProps {
 }
 
 /**
- * A quick-prompt button with an optional description tooltip.
+ * A quick-prompt button. Description shown as a native browser tooltip (title).
  * Used in AI tabs (functional) and the Home tab (preview-only).
  */
 export function QuickButton({ btn, fallbackColour, onClick }: QuickButtonProps): React.ReactElement {
   const colour = btn.colour ?? fallbackColour;
-
-  const button = (
+  return (
     <Button
       size="small"
       appearance="outline"
+      title={btn.description || undefined}
       style={{ backgroundColor: colour }}
       onClick={onClick}
     >
       {btn.name}
     </Button>
-  );
-
-  if (!btn.description) return button;
-
-  return (
-    <Tooltip content={btn.description} relationship="description">
-      {button}
-    </Tooltip>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button, Spinner, Checkbox, Tooltip } from "@fluentui/react-components";
+import { Button, Spinner, Checkbox } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
 import { MarkdownResponse } from "../components/MarkdownResponse";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
@@ -120,11 +120,10 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
 
             {/* Instructions */}
             {instructions.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                {instructions.map((inst) => {
-                  const checkbox = (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                {instructions.map((inst) => (
+                  <span key={inst.name} title={inst.description || undefined}>
                     <Checkbox
-                      key={inst.name}
                       label={inst.name}
                       checked={checkedInstructions.has(inst.name)}
                       onChange={(_, data) =>
@@ -135,15 +134,10 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                           return next;
                         })
                       }
-                      style={{ fontSize: "12px" }}
+                      style={{ gap: 0, fontSize: "12px" }}
                     />
-                  );
-                  return inst.description ? (
-                    <Tooltip key={inst.name} content={inst.description} relationship="description">
-                      {checkbox}
-                    </Tooltip>
-                  ) : checkbox;
-                })}
+                  </span>
+                ))}
               </div>
             )}
 
