@@ -628,12 +628,22 @@ function readDocTypes() {
           return rule;
         })
         .filter((r) => r.match && r.replaceText);
+      const rawInst = dt.Instruction ?? [];
+      const instructions = (Array.isArray(rawInst) ? rawInst : [rawInst])
+        .map((item) => ({
+          name:        item["@_Name"]        || "",
+          description: item["@_Description"] || "",
+          instruction: String(item["#text"]  || "").trim(),
+          default:     item["@_Default"] === "true" || item["@_Default"] === true,
+        }))
+        .filter((i) => i.name && i.instruction);
       return {
         name: dt["@_name"] || "",
         description: dt.description || "",
         context: dt.context || "",
         buttons,
         obfuscates,
+        instructions,
       };
     });
   } catch {

@@ -29,6 +29,7 @@ export interface DocType {
   context: string;
   buttons: GeneralButton[];
   obfuscates: ObfuscateRule[];
+  instructions: Instruction[];
 }
 
 export async function fetchDocTypes(): Promise<DocType[]> {

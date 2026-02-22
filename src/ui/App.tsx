@@ -13,7 +13,7 @@ import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabAIDocument } from "./tabs/TabAI";
 import { TabAIGeneral } from "./tabs/TabAIGeneral";
 import { TabConfig } from "./tabs/TabConfig";
-import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType, fetchInstructions, Instruction } from "../integrations/api/configClient";
+import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType, fetchInstructions, Instruction, fetchObfuscates, ObfuscateRule } from "../integrations/api/configClient";
 
 type TabId = "home" | "config" | "obfuscate" | "ai-document" | "ai-general";
 
@@ -34,6 +34,7 @@ export function App(): React.ReactElement {
   const [selectedDocTypeName, setSelectedDocTypeName] = useState<string>("");
 
   const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [globalObfuscates, setGlobalObfuscates] = useState<ObfuscateRule[]>([]);
 
   // Document summary refresh
   const [summaryKey, setSummaryKey] = useState(0);
@@ -64,6 +65,9 @@ export function App(): React.ReactElement {
     fetchInstructions()
       .then(setInstructions)
       .catch(() => {});
+    fetchObfuscates()
+      .then(setGlobalObfuscates)
+      .catch(() => {});
   }, [runValidation]);
 
   useEffect(() => {
@@ -92,6 +96,9 @@ export function App(): React.ReactElement {
 
     fetchInstructions()
       .then(setInstructions)
+      .catch(() => {});
+    fetchObfuscates()
+      .then(setGlobalObfuscates)
       .catch(() => {});
   }, [runValidation]);
 
@@ -204,6 +211,10 @@ export function App(): React.ReactElement {
             selectedDocTypeName={selectedDocTypeName}
             onSelectDocTypeName={setSelectedDocTypeName}
             summaryKey={summaryKey}
+            generalButtons={generalButtons}
+            buttonColour={buttonColour}
+            globalObfuscates={globalObfuscates}
+            instructions={instructions}
           />)}
           {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} docTypeObfuscates={selectedDocType?.obfuscates ?? []} />)}
           {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} instructions={instructions} />)}

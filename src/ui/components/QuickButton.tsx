@@ -19,7 +19,7 @@ export function QuickButton({ btn, fallbackColour, onClick }: QuickButtonProps):
     <Button
       size="small"
       appearance="outline"
-      title={btn.description || undefined}
+      title={btn.description ? `Button: ${btn.description}` : undefined}
       style={{ backgroundColor: colour }}
       onClick={onClick}
     >
