@@ -27,13 +27,34 @@ async function getCustomRules(): Promise<ObfuscateRule[]> {
   return rulesCache;
 }
 
-// ── Session-only obfuscation terms ────────────────────────────────────────────
+// ── Session-only obfuscation terms (blacklist) ────────────────────────────────
 // Added at runtime via the Obfuscate tab context menu. Never persisted.
 
 const sessionTerms: string[] = [];
 
+// ── Session-only allow list (whitelist) ───────────────────────────────────────
+// Added at runtime via the entity list context menu. Never persisted.
+
+const sessionAllowList: string[] = [];
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Add a term to the session allow list — Presidio won't obfuscate it this session. */
+export function addSessionAllow(term: string): void {
+  const t = term.trim();
+  if (!t) return;
+  if (!sessionAllowList.some((s) => s.toLowerCase() === t.toLowerCase())) {
+    sessionAllowList.push(t);
+  }
+}
+
+/** Remove a term from the session blacklist. */
+export function removeSessionTerm(term: string): void {
+  const t = term.trim().toLowerCase();
+  const idx = sessionTerms.findIndex((s) => s.toLowerCase() === t);
+  if (idx !== -1) sessionTerms.splice(idx, 1);
 }
 
 /** Add a term to the session-only obfuscation list (case-insensitive dedup). */
@@ -71,6 +92,22 @@ export async function anonymize(text: string, language = "en", extraRules: Obfus
   }
 
   const result = await response.json() as AnonymizeResult;
+
+  // Reverse substitutions for any term in the session allow list
+  if (sessionAllowList.length > 0) {
+    const reverseMap = new Map<string, string>(); // label → original
+    result.entities = result.entities.filter((e) => {
+      if (sessionAllowList.some((a) => a.toLowerCase() === e.original.toLowerCase())) {
+        reverseMap.set(e.label, e.original);
+        return false;
+      }
+      return true;
+    });
+    for (const [label, original] of reverseMap) {
+      result.text = result.text.split(label).join(original);
+    }
+  }
+
   result.text = applySessionTerms(result.text);
   return result;
 }

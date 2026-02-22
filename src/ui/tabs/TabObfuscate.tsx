@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Spinner } from "@fluentui/react-components";
 import { getTextForAnonymization } from "../../integrations/word/documentTools";
-import { anonymize, addSessionTerm, applySessionTerms, EntityInfo } from "../../integrations/api/presidioClient";
+import { anonymize, addSessionTerm, applySessionTerms, addSessionAllow, removeSessionTerm, EntityInfo } from "../../integrations/api/presidioClient";
 import { ObfuscateRule } from "../../integrations/api/configClient";
 
 type State =
@@ -133,6 +133,12 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; selectedText: string } | null>(null);
   const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
   const [sessionEntries, setSessionEntries] = useState<string[]>([]);
+
+  type EntityMenu =
+    | { x: number; y: number; kind: "presidio"; entity: EntityInfo }
+    | { x: number; y: number; kind: "manual"; term: string };
+  const [entityMenu, setEntityMenu] = useState<EntityMenu | null>(null);
+  const [hoveredEntityMenuItem, setHoveredEntityMenuItem] = useState<string | null>(null);
 
   const runAnonymize = useCallback(() => {
     setIsPending(false);
@@ -297,6 +303,43 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
     };
   }, [contextMenu]);
 
+  // Dismiss entity menu on outside click or Escape
+  useEffect(() => {
+    if (!entityMenu) return;
+    function dismiss(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setEntityMenu(null);
+    }
+    document.addEventListener("click", dismiss);
+    document.addEventListener("keydown", dismiss);
+    return () => {
+      document.removeEventListener("click", dismiss);
+      document.removeEventListener("keydown", dismiss);
+    };
+  }, [entityMenu]);
+
+  function handleEntityMenuCopy() {
+    if (!entityMenu) return;
+    const text = entityMenu.kind === "presidio" ? entityMenu.entity.original : entityMenu.term;
+    navigator.clipboard.writeText(text).catch(() => {});
+    setEntityMenu(null);
+  }
+
+  function handleEntityMenuUnobfuscate() {
+    if (!entityMenu) return;
+    if (entityMenu.kind === "presidio") {
+      addSessionAllow(entityMenu.entity.original);
+      setEntityMenu(null);
+      runAnonymize();
+    } else {
+      const term = entityMenu.term;
+      removeSessionTerm(term);
+      setSessionEntries((prev) => prev.filter((s) => s.toLowerCase() !== term.toLowerCase()));
+      setEntityMenu(null);
+      runAnonymize();
+    }
+  }
+
   function handleContextMenu(e: React.MouseEvent<HTMLTextAreaElement>) {
     const ta = e.currentTarget;
     const selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd);
@@ -423,6 +466,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
               onClick={() => handleEntityClick(e.label)}
               onMouseEnter={() => setHoveredLabel(e.label)}
               onMouseLeave={() => setHoveredLabel(null)}
+              onContextMenu={(ev) => { ev.preventDefault(); setEntityMenu({ x: ev.clientX, y: ev.clientY, kind: "presidio", entity: e }); }}
               style={{
                 display: "flex",
                 gap: "8px",
@@ -454,6 +498,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
           {sessionEntries.map((term) => (
             <div
               key={`session:${term}`}
+              onContextMenu={(ev) => { ev.preventDefault(); setEntityMenu({ x: ev.clientX, y: ev.clientY, kind: "manual", term }); }}
               style={{
                 display: "flex",
                 gap: "8px",
@@ -477,7 +522,46 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
         </div>
       </div>
 
-      {/* Custom context menu */}
+      {/* Entity list context menu */}
+      {entityMenu && (
+        <div
+          style={{
+            position: "fixed",
+            top: entityMenu.y,
+            left: entityMenu.x,
+            zIndex: 9999,
+            background: "#ffffff",
+            border: "1px solid #c0c0c0",
+            borderRadius: "4px",
+            boxShadow: "2px 4px 12px rgba(0,0,0,0.18)",
+            minWidth: "120px",
+            padding: "4px 0",
+            fontFamily: "Segoe UI, sans-serif",
+            fontSize: "13px",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(["Copy", "Unobfuscate"] as const).map((item) => (
+            <div
+              key={item}
+              onMouseEnter={() => setHoveredEntityMenuItem(item)}
+              onMouseLeave={() => setHoveredEntityMenuItem(null)}
+              onClick={item === "Copy" ? handleEntityMenuCopy : handleEntityMenuUnobfuscate}
+              style={{
+                padding: "5px 16px",
+                cursor: "default",
+                background: hoveredEntityMenuItem === item ? "#0078d4" : "transparent",
+                color: hoveredEntityMenuItem === item ? "#ffffff" : "#000000",
+                userSelect: "none",
+              }}
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Textarea context menu */}
       {contextMenu && (
         <div
           style={{
