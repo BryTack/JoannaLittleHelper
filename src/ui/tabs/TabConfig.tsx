@@ -17,7 +17,7 @@ export function TabConfig({ configState, onRevalidate }: TabConfigProps): React.
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontWeight: 600 }}>Configuration</span>
         <Button size="small" onClick={onRevalidate} disabled={configState.status === "loading"}>
-          {configState.status === "loading" ? <Spinner size="extra-tiny" /> : "Re-check"}
+          {configState.status === "loading" ? <Spinner size="extra-tiny" /> : "Re-Load"}
         </Button>
       </div>
 
@@ -83,7 +83,7 @@ export function TabConfig({ configState, onRevalidate }: TabConfigProps): React.
 
           {!configState.validation.valid && (
             <div style={{ fontSize: "12px", color: "#666" }}>
-              Edit the config file above then click Re-check.
+              Edit the config file above then click Re-Load.
             </div>
           )}
         </>

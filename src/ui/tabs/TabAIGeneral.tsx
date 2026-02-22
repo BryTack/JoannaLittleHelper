@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button, Spinner } from "@fluentui/react-components";
+import { QuickButton } from "../components/QuickButton";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
 import { Profile, GeneralButton } from "../../integrations/api/configClient";
@@ -95,15 +96,12 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour }: 
             {generalButtons.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {generalButtons.map((btn) => (
-                  <Button
+                  <QuickButton
                     key={btn.name}
-                    size="small"
-                    appearance="outline"
-                    style={{ backgroundColor: buttonColour }}
+                    btn={btn}
+                    fallbackColour={buttonColour}
                     onClick={() => setPrompt(btn.context)}
-                  >
-                    {btn.name}
-                  </Button>
+                  />
                 ))}
               </div>
             )}

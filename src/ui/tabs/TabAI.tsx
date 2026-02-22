@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button, Spinner } from "@fluentui/react-components";
+import { QuickButton } from "../components/QuickButton";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
-import { Profile, GeneralButton } from "../../integrations/api/configClient";
+import { Profile, GeneralButton, ObfuscateRule } from "../../integrations/api/configClient";
 import { getTextForAnonymization, getSelectedText } from "../../integrations/word/documentTools";
 import { anonymize } from "../../integrations/api/presidioClient";
 
@@ -17,11 +18,12 @@ const TEST_PROMPT = "";
 interface TabAIDocumentProps {
   selectedProfile: Profile | undefined;
   selectedDocTypeContext: string | undefined;
+  docTypeObfuscates: ObfuscateRule[];
   generalButtons: GeneralButton[];
   buttonColour: string;
 }
 
-export function TabAIDocument({ selectedProfile, selectedDocTypeContext, generalButtons, buttonColour }: TabAIDocumentProps): React.ReactElement {
+export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docTypeObfuscates, generalButtons, buttonColour }: TabAIDocumentProps): React.ReactElement {
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
@@ -54,7 +56,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
     setInputCollapsed(true);
     try {
       const { text: bodyText } = await getTextForAnonymization();
-      const result = await anonymize(bodyText);
+      const result = await anonymize(bodyText, "en", docTypeObfuscates);
       const documentText = result.text;
       const text = await sendMessage(prompt.trim(), aiName, combinedContext, documentText);
       setSendState({ status: "done", text });
@@ -120,15 +122,12 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
             {generalButtons.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {generalButtons.map((btn) => (
-                  <Button
+                  <QuickButton
                     key={btn.name}
-                    size="small"
-                    appearance="outline"
-                    style={{ backgroundColor: btn.colour ?? buttonColour }}
+                    btn={btn}
+                    fallbackColour={buttonColour}
                     onClick={() => setPrompt(btn.context)}
-                  >
-                    {btn.name}
-                  </Button>
+                  />
                 ))}
               </div>
             )}

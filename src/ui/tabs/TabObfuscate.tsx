@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Spinner } from "@fluentui/react-components";
 import { getTextForAnonymization } from "../../integrations/word/documentTools";
-import { anonymize, EntityInfo } from "../../integrations/api/presidioClient";
+import { anonymize, addSessionTerm, applySessionTerms, EntityInfo } from "../../integrations/api/presidioClient";
+import { ObfuscateRule } from "../../integrations/api/configClient";
 
 type State =
   | { status: "idle" }
@@ -114,9 +115,10 @@ function visibleParagraphIndex(
 
 interface TabObfuscateProps {
   isActive: boolean;
+  docTypeObfuscates: ObfuscateRule[];
 }
 
-export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElement {
+export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps): React.ReactElement {
   const [state, setState] = useState<State>({ status: "idle" });
   const [isPending, setIsPending] = useState(false);
   const [splitPct, setSplitPct] = useState(70);
@@ -128,6 +130,9 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const occurrenceIdxRef = useRef<Record<string, number>>({});
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; selectedText: string } | null>(null);
+  const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
+  const [sessionEntries, setSessionEntries] = useState<string[]>([]);
 
   const runAnonymize = useCallback(() => {
     setIsPending(false);
@@ -141,7 +146,7 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
     (async () => {
       try {
         const { text: bodyText, isSelection } = await getTextForAnonymization();
-        const result = await anonymize(bodyText);
+        const result = await anonymize(bodyText, "en", docTypeObfuscates);
         if (!cancelled) {
           obfuscatedParasRef.current = result.text.split(/\r\n|\r|\n/);
           setState({ status: "done", text: result.text, entities: result.entities, isSelection });
@@ -161,7 +166,7 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
         }
       }
     })();
-  }, []);
+  }, [docTypeObfuscates]);
 
   // Run and listen only while the Obfuscate tab is active
   useEffect(() => {
@@ -277,6 +282,48 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
     document.addEventListener("mouseup", onMouseUp);
   }
 
+  // Dismiss context menu on outside click or Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    function dismiss(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setContextMenu(null);
+    }
+    document.addEventListener("click", dismiss);
+    document.addEventListener("keydown", dismiss);
+    return () => {
+      document.removeEventListener("click", dismiss);
+      document.removeEventListener("keydown", dismiss);
+    };
+  }, [contextMenu]);
+
+  function handleContextMenu(e: React.MouseEvent<HTMLTextAreaElement>) {
+    const ta = e.currentTarget;
+    const selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd);
+    if (!selectedText) return; // no selection → let native menu show
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, selectedText });
+  }
+
+  function handleMenuCopy() {
+    if (!contextMenu) return;
+    navigator.clipboard.writeText(contextMenu.selectedText).catch(() => {});
+    setContextMenu(null);
+  }
+
+  function handleMenuObfuscate() {
+    if (!contextMenu || state.status !== "done") return;
+    const term = contextMenu.selectedText;
+    addSessionTerm(term);
+    const newText = applySessionTerms(state.text);
+    obfuscatedParasRef.current = newText.split(/\r\n|\r|\n/);
+    setState((prev) => prev.status === "done" ? { ...prev, text: newText } : prev);
+    setSessionEntries((prev) =>
+      prev.some((s) => s.toLowerCase() === term.toLowerCase()) ? prev : [...prev, term]
+    );
+    setContextMenu(null);
+  }
+
   const pendingBg     = isPending ? "#fff0f0" : "#fafafa";
   const pendingBorder = isPending ? "#f0c0c0" : "#d0d0d0";
 
@@ -318,6 +365,7 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
             readOnly
             value={state.text || "(Document is empty)"}
             onScroll={handleTextareaScroll}
+            onContextMenu={handleContextMenu}
             style={{
               flex: 1,
               resize: "none",
@@ -363,7 +411,7 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
         overflow: "hidden",
       }}>
         <div style={{ height: "100%", overflow: "auto", padding: "4px 0" }}>
-          {state.status === "done" && uniqueEntities(state.entities).length === 0 && (
+          {state.status === "done" && uniqueEntities(state.entities).length === 0 && sessionEntries.length === 0 && (
             <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
               No PII detected
             </div>
@@ -398,9 +446,75 @@ export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElemen
               </span>
             </div>
           ))}
+
+          {sessionEntries.length > 0 && state.status === "done" && uniqueEntities(state.entities).length > 0 && (
+            <div style={{ borderTop: "1px solid #e8e8e8", margin: "2px 0" }} />
+          )}
+
+          {sessionEntries.map((term) => (
+            <div
+              key={`session:${term}`}
+              style={{
+                display: "flex",
+                gap: "8px",
+                padding: "2px 8px",
+                fontSize: "11px",
+                fontFamily: "Segoe UI, sans-serif",
+                lineHeight: "1.6",
+              }}
+            >
+              <span style={{ color: "#888", fontWeight: 600, minWidth: "110px", flexShrink: 0, fontStyle: "italic" }}>
+                manual
+              </span>
+              <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {term}
+              </span>
+              <span style={{ color: "#999", flexShrink: 0 }}>
+                {"X".repeat(Math.min(term.length, 6))}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* Custom context menu */}
+      {contextMenu && (
+        <div
+          style={{
+            position: "fixed",
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 9999,
+            background: "#ffffff",
+            border: "1px solid #c0c0c0",
+            borderRadius: "4px",
+            boxShadow: "2px 4px 12px rgba(0,0,0,0.18)",
+            minWidth: "120px",
+            padding: "4px 0",
+            fontFamily: "Segoe UI, sans-serif",
+            fontSize: "13px",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(["Copy", "Obfuscate"] as const).map((item) => (
+            <div
+              key={item}
+              onMouseEnter={() => setHoveredMenuItem(item)}
+              onMouseLeave={() => setHoveredMenuItem(null)}
+              onClick={item === "Copy" ? handleMenuCopy : handleMenuObfuscate}
+              style={{
+                padding: "5px 16px",
+                cursor: "default",
+                background: hoveredMenuItem === item ? "#0078d4" : "transparent",
+                color: hoveredMenuItem === item ? "#ffffff" : "#000000",
+                userSelect: "none",
+              }}
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -48,6 +48,19 @@ export function App(): React.ReactElement {
     }
   }, []);
 
+  const runReload = useCallback(async () => {
+    await runValidation();
+    fetchProfiles()
+      .then((p) => { setProfiles(p); if (p.length > 0) setSelectedProfileName((n) => n || p[0].name); })
+      .catch((e: Error) => setProfileError(e.message));
+    fetchGeneralButtons()
+      .then((gb) => { setGeneralButtons(gb.buttons); setButtonColour(gb.buttonColour); })
+      .catch(() => {});
+    fetchDocTypes()
+      .then((dt) => { setDocTypes(dt); if (dt.length > 0) setSelectedDocTypeName((n) => n || dt[0].name); })
+      .catch(() => {});
+  }, [runValidation]);
+
   useEffect(() => {
     runValidation();
     fetchProfiles()
@@ -183,10 +196,10 @@ export function App(): React.ReactElement {
             onSelectDocTypeName={setSelectedDocTypeName}
             summaryKey={summaryKey}
           />)}
-          {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} />)}
-          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={documentButtons} buttonColour={buttonColour} />)}
+          {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} docTypeObfuscates={selectedDocType?.obfuscates ?? []} />)}
+          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} />)}
           {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} />)}
-          {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runValidation} />)}
+          {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runReload} />)}
         </div>
     </FluentProvider>
   );

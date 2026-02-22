@@ -3,6 +3,7 @@ import pkg from "../../../package.json";
 const { version } = pkg;
 import { Label, Select, Text, Spinner } from "@fluentui/react-components";
 import { Profile, DocType } from "../../integrations/api/configClient";
+import { QuickButton } from "../components/QuickButton";
 import { getDocumentSummary, DocumentSummary } from "../../integrations/word/documentTools";
 
 function formatDate(d: Date | null): string {
@@ -140,6 +141,37 @@ export function TabHome({
             </Select>
             {selectedDocType?.context && (
               <Text size={200} style={{ color: "#605e5c" }}>{selectedDocType.context}</Text>
+            )}
+            {selectedDocType && selectedDocType.buttons.length > 0 && (
+              <div>
+                <Text size={100} style={{ color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                  Buttons
+                </Text>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
+                  {selectedDocType.buttons.map((btn) => (
+                    <QuickButton key={btn.name} btn={btn} fallbackColour="#ebebeb" />
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedDocType && selectedDocType.obfuscates.length > 0 && (
+              <div>
+                <Text size={100} style={{ color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                  Obfuscation rules
+                </Text>
+                <ul style={{ margin: "3px 0 0 14px", padding: 0 }}>
+                  {selectedDocType.obfuscates.map((rule, i) => {
+                    const find = rule.match === "text" ? rule.findText : `/${rule.pattern}/`;
+                    return (
+                      <li key={i} style={{ fontSize: "11px", color: "#605e5c", marginBottom: "1px", fontFamily: "monospace" }}>
+                        {find}
+                        <span style={{ color: "#888" }}> → </span>
+                        {rule.replaceText}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </div>
         )}

@@ -8,6 +8,7 @@ Start with:
 """
 
 import json
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -16,7 +17,7 @@ ALLOWED_ORIGIN = "https://localhost:3000"
 
 print("[Presidio] Loading NLP model — this takes a few seconds...", flush=True)
 
-from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
+from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer, RecognizerResult
 from presidio_analyzer.predefined_recognizers import PhoneRecognizer
 from presidio_anonymizer import AnonymizerEngine
 
@@ -88,39 +89,47 @@ anonymizer = AnonymizerEngine()
 print(f"[Presidio] Ready on http://localhost:{PORT}", flush=True)
 
 
-def _build_custom_recognizers(rules):
+def _apply_custom_rules(text, rules, score_threshold):
     """
-    Build per-request PatternRecognizer / DenyListRecognizer instances
-    from the custom rules supplied in the POST body.
+    Apply custom obfuscation rules to text using re directly, bypassing
+    Presidio's recognizer chain (which requires NLP artifacts for deny-list
+    matching and would silently fail with nlp_artifacts=None).
 
-    Text rules with the same entity are grouped into a single DenyListRecognizer.
-    Each regex rule becomes its own PatternRecognizer.
+    Text rules use case-insensitive literal matching at score 1.0.
+    Regex rules use the supplied pattern at the supplied score (default 0.85).
+    Returns a list of RecognizerResult objects.
     """
-    recognizers = []
-    deny_groups = {}  # entity -> [values]
+    results = []
     for rule in rules:
         match_type = rule.get("match", "")
-        entity = rule.get("entity", "")
+        entity = rule.get("replaceText", "")
         if not match_type or not entity:
             continue
         if match_type == "text":
-            value = rule.get("value", "")
-            if value:
-                deny_groups.setdefault(entity, []).append(value)
+            value = rule.get("findText", "")
+            if not value:
+                continue
+            try:
+                for m in re.finditer(re.escape(value), text, re.IGNORECASE):
+                    results.append(RecognizerResult(
+                        entity_type=entity, start=m.start(), end=m.end(), score=1.0
+                    ))
+            except re.error:
+                pass
         elif match_type == "regex":
             pattern_str = rule.get("pattern", "")
-            if pattern_str:
-                score = float(rule.get("score", 0.85))
-                recognizers.append(PatternRecognizer(
-                    supported_entity=entity,
-                    patterns=[Pattern(name=f"custom_{entity.lower()}", regex=pattern_str, score=score)],
-                ))
-    for entity, values in deny_groups.items():
-        recognizers.append(PatternRecognizer(
-            supported_entity=entity,
-            deny_list=values,
-        ))
-    return recognizers
+            if not pattern_str:
+                continue
+            score = float(rule.get("score", 0.85))
+            try:
+                for m in re.finditer(pattern_str, text):
+                    if score >= score_threshold:
+                        results.append(RecognizerResult(
+                            entity_type=entity, start=m.start(), end=m.end(), score=score
+                        ))
+            except re.error:
+                pass
+    return results
 
 
 def _remove_overlaps(results):
@@ -212,23 +221,17 @@ class Handler(BaseHTTPRequestHandler):
             language = body.get("language", "en")
             custom_rules = body.get("custom_rules", [])
 
-            # Build per-request custom recognizers and replacement map
-            custom_recognizers = _build_custom_recognizers(custom_rules)
+            # Build replacement map for custom rules that specify a replacement string
             custom_replacements = {
-                rule["entity"]: rule["replacement"]
+                rule["replaceText"]: rule["replacement"]
                 for rule in custom_rules
-                if rule.get("entity") and rule.get("replacement") is not None
+                if rule.get("replaceText") and rule.get("replacement") is not None
             }
 
             results = analyzer.analyze(text=text, language=language, score_threshold=SCORE_THRESHOLD)
 
-            # Run custom recognizers directly — pattern/deny-list based, no NLP artifacts needed
-            for rec in custom_recognizers:
-                try:
-                    extra = rec.analyze(text=text, entities=rec.supported_entities, nlp_artifacts=None)
-                    results.extend([r for r in extra if r.score >= SCORE_THRESHOLD])
-                except Exception:
-                    pass
+            # Apply custom rules via re — no NLP artifacts required
+            results.extend(_apply_custom_rules(text, custom_rules, SCORE_THRESHOLD))
 
             anonymised_text, entities = _anonymize_consistent(text, results, custom_replacements)
 

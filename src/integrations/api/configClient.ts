@@ -28,6 +28,7 @@ export interface DocType {
   description: string;
   context: string;
   buttons: GeneralButton[];
+  obfuscates: ObfuscateRule[];
 }
 
 export async function fetchDocTypes(): Promise<DocType[]> {
@@ -50,8 +51,8 @@ export async function fetchGeneralButtons(): Promise<GeneralButtons> {
 
 export interface ObfuscateRule {
   match: "text" | "regex";
-  entity: string;
-  value?: string;
+  replaceText: string;
+  findText?: string;
   pattern?: string;
   score?: number;
   replacement?: string;

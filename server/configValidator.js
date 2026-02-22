@@ -379,6 +379,36 @@ async function validate() {
         messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${btnLabel} > context: needs a value` });
       }
     }
+
+    // Obfuscate elements within this <DocType> (zero or more allowed)
+    if (dt.Obfuscate === undefined) dt.Obfuscate = [];
+    if (!Array.isArray(dt.Obfuscate)) dt.Obfuscate = [dt.Obfuscate];
+
+    for (let k = 0; k < dt.Obfuscate.length; k++) {
+      const rule = dt.Obfuscate[k];
+      const ruleLabel = `Obfuscate[${k + 1}]`;
+
+      if (!rule["@_match"]) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${ruleLabel} > match: missing (must be "text" or "regex")` });
+      } else if (!["text", "regex"].includes(rule["@_match"])) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${ruleLabel} > match: "${rule["@_match"]}" is not valid` });
+      }
+      if (!rule["@_ReplaceText"]) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${ruleLabel} > ReplaceText: missing` });
+      }
+      if (rule["@_match"] === "text" && !rule["@_FindText"]) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${ruleLabel} > FindText: required when match="text"` });
+      }
+      if (rule["@_match"] === "regex" && !rule["@_pattern"]) {
+        messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${ruleLabel} > pattern: required when match="regex"` });
+      }
+      if (rule["@_score"] !== undefined) {
+        const s = parseFloat(rule["@_score"]);
+        if (isNaN(s) || s < 0 || s > 1) {
+          messages.push({ level: "warning", text: `DocTypes > ${dtLabel} > ${ruleLabel} > score: must be 0–1` });
+        }
+      }
+    }
   }
 
   // ── GROUP 6: OBFUSCATES ───────────────────────────────────────────────────
@@ -409,14 +439,14 @@ async function validate() {
       messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > match: "${rule["@_match"]}" is not valid (must be "text" or "regex")` });
     }
 
-    // Step 33: entity attribute — required, non-empty
-    if (!rule["@_entity"]) {
-      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > entity attribute: missing` });
+    // Step 33: ReplaceText attribute — required, non-empty
+    if (!rule["@_ReplaceText"]) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > ReplaceText attribute: missing` });
     }
 
-    // Step 34: value required when match="text"
-    if (rule["@_match"] === "text" && !rule["@_value"]) {
-      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > value attribute: required when match="text"` });
+    // Step 34: FindText required when match="text"
+    if (rule["@_match"] === "text" && !rule["@_FindText"]) {
+      messages.push({ level: "warning", text: `Obfuscates > ${ruleLabel} > FindText attribute: required when match="text"` });
     }
 
     // Step 35: pattern required when match="regex"
@@ -525,11 +555,23 @@ function readDocTypes() {
         if (colour) btn.colour = colour;
         return btn;
       });
+      const rawObf = dt.Obfuscate ?? [];
+      const obfuscates = (Array.isArray(rawObf) ? rawObf : [rawObf])
+        .map((item) => {
+          const rule = { match: item["@_match"] || "", replaceText: item["@_ReplaceText"] || "" };
+          if (item["@_FindText"]    !== undefined) rule.findText    = String(item["@_FindText"]);
+          if (item["@_pattern"]     !== undefined) rule.pattern     = String(item["@_pattern"]);
+          if (item["@_score"]       !== undefined) rule.score       = parseFloat(item["@_score"]);
+          if (item["@_replacement"] !== undefined) rule.replacement = String(item["@_replacement"]);
+          return rule;
+        })
+        .filter((r) => r.match && r.replaceText);
       return {
         name: dt["@_name"] || "",
         description: dt.description || "",
         context: dt.context || "",
         buttons,
+        obfuscates,
       };
     });
   } catch {
@@ -549,15 +591,15 @@ function readObfuscates() {
       .map((item) => {
         const rule = {
           match: item["@_match"] || "",
-          entity: item["@_entity"] || "",
+          replaceText: item["@_ReplaceText"] || "",
         };
-        if (item["@_value"]       !== undefined) rule.value       = String(item["@_value"]);
+        if (item["@_FindText"]    !== undefined) rule.findText    = String(item["@_FindText"]);
         if (item["@_pattern"]     !== undefined) rule.pattern     = String(item["@_pattern"]);
         if (item["@_score"]       !== undefined) rule.score       = parseFloat(item["@_score"]);
         if (item["@_replacement"] !== undefined) rule.replacement = String(item["@_replacement"]);
         return rule;
       })
-      .filter((r) => r.match && r.entity); // discard incomplete rules
+      .filter((r) => r.match && r.replaceText); // discard incomplete rules
   } catch {
     return [];
   }
