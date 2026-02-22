@@ -22,7 +22,10 @@ interface TabAIGeneralProps {
 }
 
 export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, instructions }: TabAIGeneralProps): React.ReactElement {
-  const [prompt, setPrompt] = useState(TEST_PROMPT);
+  const defaultInstructionText = () =>
+    instructions.filter((i) => i.default).map((i) => i.instruction).join("\n\n");
+
+  const [prompt, setPrompt] = useState(defaultInstructionText);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
@@ -30,14 +33,31 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
   );
 
   useEffect(() => {
-    setCheckedInstructions(new Set(instructions.filter((i) => i.default).map((i) => i.name)));
+    const defaults = instructions.filter((i) => i.default);
+    setCheckedInstructions(new Set(defaults.map((i) => i.name)));
+    setPrompt(defaults.map((i) => i.instruction).join("\n\n"));
   }, [instructions]);
 
   const aiName = selectedProfile?.ai ?? "";
-  const checkedInstructionTexts = instructions
-    .filter((i) => checkedInstructions.has(i.name))
-    .map((i) => i.instruction);
-  const context = [selectedProfile?.context, ...checkedInstructionTexts].filter(Boolean).join("\n\n") || undefined;
+  const context = selectedProfile?.context || undefined;
+
+  function handleInstructionChange(inst: Instruction, checked: boolean) {
+    setCheckedInstructions((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(inst.name);
+      else next.delete(inst.name);
+      return next;
+    });
+    setPrompt((prev) => {
+      if (checked) {
+        return prev ? `${prev}\n\n${inst.instruction}` : inst.instruction;
+      }
+      let result = prev.replace(`\n\n${inst.instruction}`, "");
+      result = result.replace(`${inst.instruction}\n\n`, "");
+      result = result.replace(inst.instruction, "");
+      return result;
+    });
+  }
 
   async function send() {
     if (!prompt.trim() || !aiName) return;
@@ -126,14 +146,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                     <Checkbox
                       label={inst.name}
                       checked={checkedInstructions.has(inst.name)}
-                      onChange={(_, data) =>
-                        setCheckedInstructions((prev) => {
-                          const next = new Set(prev);
-                          if (data.checked) next.add(inst.name);
-                          else next.delete(inst.name);
-                          return next;
-                        })
-                      }
+                      onChange={(_, data) => handleInstructionChange(inst, !!data.checked)}
                       style={{ gap: 0, fontSize: "12px" }}
                     />
                   </span>

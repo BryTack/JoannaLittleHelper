@@ -26,7 +26,10 @@ interface TabAIDocumentProps {
 }
 
 export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docTypeObfuscates, generalButtons, buttonColour, instructions }: TabAIDocumentProps): React.ReactElement {
-  const [prompt, setPrompt] = useState(TEST_PROMPT);
+  const defaultInstructionText = () =>
+    instructions.filter((i) => i.default).map((i) => i.instruction).join("\n\n");
+
+  const [prompt, setPrompt] = useState(defaultInstructionText);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [isSelectionOnly, setIsSelectionOnly] = useState(false);
@@ -34,9 +37,11 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
     () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
   );
 
-  // Reset checked state to defaults whenever the instruction list changes (e.g. Re-Load)
+  // Reset checked state and prompt to defaults whenever the instruction list changes (e.g. Re-Load)
   useEffect(() => {
-    setCheckedInstructions(new Set(instructions.filter((i) => i.default).map((i) => i.name)));
+    const defaults = instructions.filter((i) => i.default);
+    setCheckedInstructions(new Set(defaults.map((i) => i.name)));
+    setPrompt(defaults.map((i) => i.instruction).join("\n\n"));
   }, [instructions]);
 
   // Keep isSelectionOnly in sync with the live Word selection
@@ -56,13 +61,28 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
     ? `${aiName}${selectedProfile?.aiVersion ? ` (${selectedProfile.aiVersion})` : ""}`
     : "";
 
-  const checkedInstructionTexts = instructions
-    .filter((i) => checkedInstructions.has(i.name))
-    .map((i) => i.instruction);
-
-  const combinedContext = [selectedProfile?.context, selectedDocTypeContext, ...checkedInstructionTexts]
+  const combinedContext = [selectedProfile?.context, selectedDocTypeContext]
     .filter(Boolean)
     .join("\n\n") || undefined;
+
+  function handleInstructionChange(inst: Instruction, checked: boolean) {
+    setCheckedInstructions((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(inst.name);
+      else next.delete(inst.name);
+      return next;
+    });
+    setPrompt((prev) => {
+      if (checked) {
+        return prev ? `${prev}\n\n${inst.instruction}` : inst.instruction;
+      }
+      // Remove the instruction text however it appears
+      let result = prev.replace(`\n\n${inst.instruction}`, "");
+      result = result.replace(`${inst.instruction}\n\n`, "");
+      result = result.replace(inst.instruction, "");
+      return result;
+    });
+  }
 
   async function send() {
     if (!prompt.trim() || !aiName) return;
@@ -154,14 +174,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
                     <Checkbox
                       label={inst.name}
                       checked={checkedInstructions.has(inst.name)}
-                      onChange={(_, data) =>
-                        setCheckedInstructions((prev) => {
-                          const next = new Set(prev);
-                          if (data.checked) next.add(inst.name);
-                          else next.delete(inst.name);
-                          return next;
-                        })
-                      }
+                      onChange={(_, data) => handleInstructionChange(inst, !!data.checked)}
                       style={{ gap: 0, fontSize: "12px" }}
                     />
                   </span>
