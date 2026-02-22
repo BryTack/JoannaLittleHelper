@@ -162,6 +162,45 @@ export async function searchDocument(query: string): Promise<TextMatch[]> {
   return findMatches(body, query);
 }
 
+/**
+ * Selects a specific occurrence (zero-based, wraps around) of a text string in the document.
+ * Returns total match count; 0 if none found.
+ */
+export async function selectOccurrence(query: string, index: number): Promise<number> {
+  let count = 0;
+  await Word.run(async (context) => {
+    const results = context.document.body.search(query, { matchWholeWord: false, matchCase: false });
+    results.load("text");
+    await context.sync();
+    count = results.items.length;
+    if (count > 0) {
+      const i = ((index % count) + count) % count;
+      results.items[i].select();
+      await context.sync();
+    }
+  });
+  return count;
+}
+
+/**
+ * Selects and scrolls to the paragraph at the given zero-based index.
+ * Returns true if the index was in range.
+ */
+export async function selectParagraph(index: number): Promise<boolean> {
+  let found = false;
+  await Word.run(async (context) => {
+    const paragraphs = context.document.body.paragraphs;
+    paragraphs.load("text");
+    await context.sync();
+    if (index >= 0 && index < paragraphs.items.length) {
+      paragraphs.items[index].getRange().select();
+      await context.sync();
+      found = true;
+    }
+  });
+  return found;
+}
+
 /** Removes highlighting from the entire document body. */
 export async function clearHighlights(): Promise<void> {
   await Word.run(async (context) => {
