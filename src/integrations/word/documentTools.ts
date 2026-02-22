@@ -43,6 +43,30 @@ export async function getSelectedText(): Promise<string> {
   return text;
 }
 
+/**
+ * Returns the selected text if a non-empty selection exists,
+ * otherwise returns the full document body text.
+ * Single Word.run round-trip.
+ */
+export async function getTextForAnonymization(): Promise<{ text: string; isSelection: boolean }> {
+  let text = "";
+  let isSelection = false;
+  await Word.run(async (context) => {
+    const selection = context.document.getSelection();
+    const body = context.document.body;
+    selection.load("text");
+    body.load("text");
+    await context.sync();
+    if (selection.text.trim()) {
+      text = selection.text;
+      isSelection = true;
+    } else {
+      text = body.text;
+    }
+  });
+  return { text, isSelection };
+}
+
 /** Returns all paragraphs as an array of DocumentFragments. */
 export async function getParagraphs(): Promise<DocumentFragment[]> {
   const fragments: DocumentFragment[] = [];
@@ -222,6 +246,13 @@ export async function getDocumentSummary(): Promise<DocumentSummary> {
     }
   } catch {
     // leave empty — document not yet saved
+  }
+
+  // If the document has never been saved, Word returns a bogus default date
+  // (typically from Normal.dotm). Clear dates so nothing misleading is shown.
+  if (!summary.fileName) {
+    summary.creationDate = null;
+    summary.lastSaveTime = null;
   }
 
   return summary;

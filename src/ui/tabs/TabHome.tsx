@@ -10,6 +10,12 @@ function formatDate(d: Date | null): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+function formatDateTime(d: Date | null): string {
+  if (!d) return "";
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 function SummaryTable({ summary }: { summary: DocumentSummary }) {
   const tdLabel: React.CSSProperties = {
     color: "#605e5c",
@@ -42,13 +48,12 @@ function SummaryTable({ summary }: { summary: DocumentSummary }) {
         {row("Keywords",     summary.keywords)}
         {row("Description",  summary.description)}
         {row("Category",     summary.category)}
-        {row("Created",      formatDate(summary.creationDate))}
-        {row("Last saved",   formatDate(summary.lastSaveTime))}
+        {row("Created",      formatDateTime(summary.creationDate))}
+        {row("Last saved",   formatDateTime(summary.lastSaveTime))}
         {row("Last printed", formatDate(summary.lastPrintDate))}
         {row("Words",        summary.wordCount.toLocaleString(),      true)}
         {row("Characters",   summary.charCount.toLocaleString(),      true)}
         {row("Paragraphs",   summary.paragraphCount.toLocaleString(), true)}
-        {row("Pages",        "",                                      true)}
       </tbody>
     </table>
   );
@@ -63,22 +68,26 @@ interface TabHomeProps {
   docTypes: DocType[];
   selectedDocTypeName: string;
   onSelectDocTypeName: (name: string) => void;
+  summaryKey: number;
 }
 
 export function TabHome({
   profiles, profilesLoading, profileError, selectedName, onSelectName,
-  docTypes, selectedDocTypeName, onSelectDocTypeName,
+  docTypes, selectedDocTypeName, onSelectDocTypeName, summaryKey,
 }: TabHomeProps): React.ReactElement {
   const [summary, setSummary]               = useState<DocumentSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError]     = useState<string | null>(null);
 
   useEffect(() => {
+    if (!summary) setSummaryLoading(true);  // spinner only on first load
+    setSummaryError(null);
     getDocumentSummary()
       .then(setSummary)
       .catch((e: Error) => setSummaryError(e.message))
       .finally(() => setSummaryLoading(false));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryKey]);
 
   const selected = profiles.find((p) => p.name === selectedName);
   const selectedDocType = docTypes.find((dt) => dt.name === selectedDocTypeName);

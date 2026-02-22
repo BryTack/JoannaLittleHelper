@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button, Spinner } from "@fluentui/react-components";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
 import { sendMessage } from "../../integrations/api/aiClient";
 import { Profile, GeneralButton } from "../../integrations/api/configClient";
-import { getBodyText } from "../../integrations/word/documentTools";
+import { getTextForAnonymization, getSelectedText } from "../../integrations/word/documentTools";
 import { anonymize } from "../../integrations/api/presidioClient";
 
 type SendState =
@@ -25,6 +25,19 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
   const [prompt, setPrompt] = useState(TEST_PROMPT);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
+  const [isSelectionOnly, setIsSelectionOnly] = useState(false);
+
+  // Keep isSelectionOnly in sync with the live Word selection
+  useEffect(() => {
+    function handleSelectionChange() {
+      getSelectedText().then((t) => setIsSelectionOnly(t.trim().length > 0)).catch(() => {});
+    }
+    Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, handleSelectionChange);
+    handleSelectionChange(); // check immediately on mount
+    return () => {
+      Office.context.document.removeHandlerAsync(Office.EventType.DocumentSelectionChanged, { handler: handleSelectionChange });
+    };
+  }, []);
 
   const aiName = selectedProfile?.ai ?? "";
   const aiLabel = aiName
@@ -40,7 +53,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
     setSendState({ status: "loading" });
     setInputCollapsed(true);
     try {
-      const bodyText = await getBodyText();
+      const { text: bodyText } = await getTextForAnonymization();
       const result = await anonymize(bodyText);
       const documentText = result.text;
       const text = await sendMessage(prompt.trim(), aiName, combinedContext, documentText);
@@ -147,6 +160,13 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, general
           </div>
         )}
       </div>
+
+      {/* ── Selection warning ─────────────────────────────────── */}
+      {isSelectionOnly && (
+        <div style={{ fontSize: "11px", color: "#8a6000", marginBottom: "-2px" }}>
+          Selection only — not the full document
+        </div>
+      )}
 
       {/* ── Ask + checkbox row ────────────────────────────────── */}
       {(() => {

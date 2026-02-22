@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FluentProvider,
   webLightTheme,
@@ -32,6 +32,11 @@ export function App(): React.ReactElement {
 
   const [docTypes, setDocTypes] = useState<DocType[]>([]);
   const [selectedDocTypeName, setSelectedDocTypeName] = useState<string>("");
+
+  // Document summary refresh
+  const [summaryKey, setSummaryKey] = useState(0);
+  const activeTabRef = useRef<TabId>("home");
+  const summaryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runValidation = useCallback(async () => {
     setConfigState({ status: "loading" });
@@ -67,6 +72,41 @@ export function App(): React.ReactElement {
       })
       .catch(() => { /* leave empty */ });
   }, [runValidation]);
+
+  // Keep ref in sync so Office callbacks can read current tab without stale closure
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    // Always re-fetch when switching to Home tab
+    if (activeTab === "home") {
+      setSummaryKey((k) => k + 1);
+    }
+  }, [activeTab]);
+
+  // Register Office document selection-change handler once on mount.
+  // DocumentSelectionChanged fires after every edit (cursor moves with each keystroke),
+  // so it reliably detects typing. Debounced to avoid rapid successive fetches.
+  useEffect(() => {
+    const handler = () => {
+      if (summaryDebounceRef.current) clearTimeout(summaryDebounceRef.current);
+      summaryDebounceRef.current = setTimeout(() => {
+        if (activeTabRef.current === "home") {
+          setSummaryKey((k) => k + 1);
+        }
+      }, 1000);
+    };
+
+    Office.context.document.addHandlerAsync(
+      Office.EventType.DocumentSelectionChanged,
+      handler
+    );
+
+    return () => {
+      Office.context.document.removeHandlerAsync(
+        Office.EventType.DocumentSelectionChanged,
+        { handler }
+      );
+    };
+  }, []);
 
   const configHasIssues =
     configState.status === "unavailable" ||
@@ -141,8 +181,9 @@ export function App(): React.ReactElement {
             docTypes={docTypes}
             selectedDocTypeName={selectedDocTypeName}
             onSelectDocTypeName={setSelectedDocTypeName}
+            summaryKey={summaryKey}
           />)}
-          {tabPane("obfuscate", <TabObfuscate />)}
+          {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} />)}
           {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} generalButtons={documentButtons} buttonColour={buttonColour} />)}
           {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} />)}
           {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runValidation} />)}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Spinner } from "@fluentui/react-components";
-import { getBodyText } from "../../integrations/word/documentTools";
+import { getTextForAnonymization } from "../../integrations/word/documentTools";
 import { anonymize, EntityInfo } from "../../integrations/api/presidioClient";
 
 type State =
+  | { status: "idle" }
   | { status: "loading" }
-  | { status: "done"; text: string; entities: EntityInfo[] }
+  | { status: "done"; text: string; entities: EntityInfo[]; isSelection: boolean }
   | { status: "error"; message: string };
 
 const DEBOUNCE_MS = 3000;
@@ -111,8 +112,12 @@ function visibleParagraphIndex(
   return paras.length - 1;
 }
 
-export function TabObfuscate(): React.ReactElement {
-  const [state, setState] = useState<State>({ status: "loading" });
+interface TabObfuscateProps {
+  isActive: boolean;
+}
+
+export function TabObfuscate({ isActive }: TabObfuscateProps): React.ReactElement {
+  const [state, setState] = useState<State>({ status: "idle" });
   const [isPending, setIsPending] = useState(false);
   const [splitPct, setSplitPct] = useState(70);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -135,11 +140,11 @@ export function TabObfuscate(): React.ReactElement {
 
     (async () => {
       try {
-        const bodyText = await getBodyText();
+        const { text: bodyText, isSelection } = await getTextForAnonymization();
         const result = await anonymize(bodyText);
         if (!cancelled) {
           obfuscatedParasRef.current = result.text.split(/\r\n|\r|\n/);
-          setState({ status: "done", text: result.text, entities: result.entities });
+          setState({ status: "done", text: result.text, entities: result.entities, isSelection });
         }
       } catch (err) {
         if (!cancelled) {
@@ -158,14 +163,17 @@ export function TabObfuscate(): React.ReactElement {
     })();
   }, []);
 
-  // Initial anonymization on mount
+  // Run and listen only while the Obfuscate tab is active
   useEffect(() => {
-    runAnonymize();
-    return () => { if (cancelRef.current) cancelRef.current(); };
-  }, [runAnonymize]);
+    if (!isActive) {
+      if (cancelRef.current) cancelRef.current();
+      return;
+    }
 
-  // Re-anonymize on document changes, debounced
-  useEffect(() => {
+    // Became active — run immediately
+    runAnonymize();
+
+    // Re-anonymize on document changes while active, debounced
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let lastUrl = Office.context.document.url;
 
@@ -198,12 +206,13 @@ export function TabObfuscate(): React.ReactElement {
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (cancelRef.current) cancelRef.current();
       Office.context.document.removeHandlerAsync(
         Office.EventType.DocumentSelectionChanged,
         { handler: handleChange }
       );
     };
-  }, [runAnonymize]);
+  }, [isActive, runAnonymize]);
 
   function handleEntityClick(label: string) {
     if (state.status !== "done" || !textareaRef.current) return;
@@ -294,6 +303,12 @@ export function TabObfuscate(): React.ReactElement {
         {state.status === "error" && (
           <div style={{ fontSize: "12px", color: "#a00", lineHeight: "1.5" }}>
             {state.message}
+          </div>
+        )}
+
+        {state.status === "done" && state.isSelection && (
+          <div style={{ fontSize: "11px", color: "#8a6000", marginBottom: "2px" }}>
+            Selection only — not the full document
           </div>
         )}
 
