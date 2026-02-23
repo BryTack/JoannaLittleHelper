@@ -55,6 +55,8 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
   }, [prompt]);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [isSelectionOnly, setIsSelectionOnly] = useState(false);
+  const [askPulse, setAskPulse] = useState(false);
+  const askPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
     () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
   );
@@ -93,6 +95,15 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
       if (checked) next.add(inst.name);
       else next.delete(inst.name);
       return next;
+    });
+  }
+
+  function triggerAskPulse() {
+    setAskPulse(false);
+    if (askPulseTimer.current) clearTimeout(askPulseTimer.current);
+    requestAnimationFrame(() => {
+      setAskPulse(true);
+      askPulseTimer.current = setTimeout(() => setAskPulse(false), 600);
     });
   }
 
@@ -219,7 +230,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
                     key={btn.name}
                     btn={btn}
                     fallbackColour={buttonColour}
-                    onClick={() => setPrompt(btn.context)}
+                    onClick={() => { setPrompt(btn.context); triggerAskPulse(); }}
                   />
                 ))}
               </div>
@@ -276,6 +287,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
               onClick={send}
               disabled={isDisabled}
               icon={sendState.status === "loading" ? <Spinner size="small" /> : undefined}
+              className={askPulse && !isDisabled ? "jlh-ask-pulse" : undefined}
               style={{
                 width: "100%",
                 fontSize: "16px",

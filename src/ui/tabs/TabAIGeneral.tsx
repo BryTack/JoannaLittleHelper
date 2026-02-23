@@ -35,6 +35,8 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
   const [prompt, setPrompt] = useState("");
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
+  const [askPulse, setAskPulse] = useState(false);
+  const askPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionRef = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
@@ -69,6 +71,15 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
       if (checked) next.add(inst.name);
       else next.delete(inst.name);
       return next;
+    });
+  }
+
+  function triggerAskPulse() {
+    setAskPulse(false);
+    if (askPulseTimer.current) clearTimeout(askPulseTimer.current);
+    requestAnimationFrame(() => {
+      setAskPulse(true);
+      askPulseTimer.current = setTimeout(() => setAskPulse(false), 600);
     });
   }
 
@@ -192,7 +203,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                     key={btn.name}
                     btn={btn}
                     fallbackColour={buttonColour}
-                    onClick={() => setPrompt(btn.context)}
+                    onClick={() => { setPrompt(btn.context); triggerAskPulse(); }}
                   />
                 ))}
               </div>
@@ -241,6 +252,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
               onClick={send}
               disabled={isDisabled}
               icon={sendState.status === "loading" ? <Spinner size="small" /> : undefined}
+              className={askPulse && !isDisabled ? "jlh-ask-pulse" : undefined}
               style={{
                 width: "100%",
                 fontSize: "16px",

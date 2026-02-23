@@ -47,3 +47,15 @@ body {
                                    padding: 2px 8px; color: #666; }
 .jlh-markdown hr                 { border: none; border-top: 1px solid #e0e0e0; margin: 8px 0; }
 .jlh-markdown a                  { color: #0078d4; }
+
+/* ── Ask button pulse — brief ring expanding outward on quick-button click ─ */
+
+@keyframes jlh-ask-pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(197, 15, 31, 0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(197, 15, 31, 0);    }
+  100% { box-shadow: 0 0 0 0   rgba(197, 15, 31, 0);    }
+}
+
+.jlh-ask-pulse {
+  animation: jlh-ask-pulse 0.55s ease-out;
+}
