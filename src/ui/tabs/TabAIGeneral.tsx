@@ -36,7 +36,6 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [askPulse, setAskPulse] = useState(false);
-  const askPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionRef = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
@@ -74,16 +73,8 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
     });
   }
 
-  function triggerAskPulse() {
-    setAskPulse(false);
-    if (askPulseTimer.current) clearTimeout(askPulseTimer.current);
-    requestAnimationFrame(() => {
-      setAskPulse(true);
-      askPulseTimer.current = setTimeout(() => setAskPulse(false), 600);
-    });
-  }
-
   async function send() {
+    setAskPulse(false);
     const instructionText = buildInstructionText(instructions, checkedInstructions);
     const fullPrompt = [instructionText, prompt.trim()].filter(Boolean).join("\n\n");
     if (!fullPrompt || !aiName) return;
@@ -203,7 +194,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                     key={btn.name}
                     btn={btn}
                     fallbackColour={buttonColour}
-                    onClick={() => { setPrompt(btn.context); triggerAskPulse(); }}
+                    onClick={() => { setPrompt(btn.context); setAskPulse(true); }}
                   />
                 ))}
               </div>

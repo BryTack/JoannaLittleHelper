@@ -56,7 +56,6 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [isSelectionOnly, setIsSelectionOnly] = useState(false);
   const [askPulse, setAskPulse] = useState(false);
-  const askPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
     () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
   );
@@ -98,16 +97,8 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
     });
   }
 
-  function triggerAskPulse() {
-    setAskPulse(false);
-    if (askPulseTimer.current) clearTimeout(askPulseTimer.current);
-    requestAnimationFrame(() => {
-      setAskPulse(true);
-      askPulseTimer.current = setTimeout(() => setAskPulse(false), 600);
-    });
-  }
-
   async function send() {
+    setAskPulse(false);
     const instructionText = buildInstructionText(instructions, checkedInstructions);
     const fullPrompt = [instructionText, prompt.trim()].filter(Boolean).join("\n\n");
     if (!fullPrompt || !aiName) return;
@@ -230,7 +221,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
                     key={btn.name}
                     btn={btn}
                     fallbackColour={buttonColour}
-                    onClick={() => { setPrompt(btn.context); triggerAskPulse(); }}
+                    onClick={() => { setPrompt(btn.context); setAskPulse(true); }}
                   />
                 ))}
               </div>
