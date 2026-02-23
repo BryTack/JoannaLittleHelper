@@ -190,13 +190,19 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
   }
 
   async function handleInsertText() {
+    const selection = menu?.text?.trim();
     closeMenu();
-    await insertTextAtCursor(markdownToText(text));
+    await insertTextAtCursor(selection || markdownToText(text));
   }
 
   async function handleInsertFormatted() {
+    const selection = menu?.text?.trim();
     closeMenu();
-    await insertHtmlAtCursor(markdownToHtml(text));
+    if (selection) {
+      await insertTextAtCursor(selection);
+    } else {
+      await insertHtmlAtCursor(markdownToHtml(text));
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────
