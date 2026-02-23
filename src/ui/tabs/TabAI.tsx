@@ -228,8 +228,9 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
             {/* Question */}
             <div style={{ height: "8px" }} />
             <details open style={{ fontSize: "12px" }}>
-              <summary style={{ cursor: "pointer", color: "#605e5c", userSelect: "none" }}>
-                Question
+              <summary style={{ cursor: "pointer", color: "#605e5c", userSelect: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Question</span>
+                <span style={{ fontSize: "10px", color: "#999", fontStyle: "italic", fontWeight: "normal" }}>Obfuscated text will be included</span>
               </summary>
               <textarea
                 ref={questionRef}
