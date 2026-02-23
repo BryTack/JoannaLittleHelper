@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Button, Spinner, Checkbox } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
 import { MarkdownResponse } from "../components/MarkdownResponse";
@@ -14,6 +14,16 @@ type SendState =
 
 const TEST_PROMPT = "";
 
+function buildInstructionText(instructions: Instruction[], checked: Set<string>): string {
+  return instructions
+    .filter((i) => checked.has(i.name))
+    .map((i) => {
+      const t = i.instruction.trim().replace(/[\r\n]+/g, " ");
+      return /[.?]$/.test(t) ? t : `${t}.`;
+    })
+    .join(" ");
+}
+
 interface TabAIGeneralProps {
   selectedProfile: Profile | undefined;
   generalButtons: GeneralButton[];
@@ -22,12 +32,24 @@ interface TabAIGeneralProps {
 }
 
 export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, instructions }: TabAIGeneralProps): React.ReactElement {
-  const defaultInstructionText = () =>
-    instructions.filter((i) => i.default).map((i) => i.instruction).join("\n\n");
-
-  const [prompt, setPrompt] = useState(defaultInstructionText);
+  const [prompt, setPrompt] = useState("");
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
+  const questionRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = questionRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxH = 270;
+    if (el.scrollHeight <= maxH) {
+      el.style.height = `${el.scrollHeight}px`;
+      el.style.overflowY = "hidden";
+    } else {
+      el.style.height = `${maxH}px`;
+      el.style.overflowY = "auto";
+    }
+  }, [prompt]);
   const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
     () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
   );
@@ -35,7 +57,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
   useEffect(() => {
     const defaults = instructions.filter((i) => i.default);
     setCheckedInstructions(new Set(defaults.map((i) => i.name)));
-    setPrompt(defaults.map((i) => i.instruction).join("\n\n"));
+    setPrompt("");
   }, [instructions]);
 
   const aiName = selectedProfile?.ai ?? "";
@@ -48,23 +70,16 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
       else next.delete(inst.name);
       return next;
     });
-    setPrompt((prev) => {
-      if (checked) {
-        return prev ? `${prev}\n\n${inst.instruction}` : inst.instruction;
-      }
-      let result = prev.replace(`\n\n${inst.instruction}`, "");
-      result = result.replace(`${inst.instruction}\n\n`, "");
-      result = result.replace(inst.instruction, "");
-      return result;
-    });
   }
 
   async function send() {
-    if (!prompt.trim() || !aiName) return;
+    const instructionText = buildInstructionText(instructions, checkedInstructions);
+    const fullPrompt = [instructionText, prompt.trim()].filter(Boolean).join("\n\n");
+    if (!fullPrompt || !aiName) return;
     setSendState({ status: "loading" });
     setInputCollapsed(true);
     try {
-      const text = await sendMessage(prompt.trim(), aiName, context);
+      const text = await sendMessage(fullPrompt, aiName, context);
       setSendState({ status: "done", text });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -103,14 +118,12 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
               <summary style={{ cursor: "pointer", color: "#605e5c", userSelect: "none" }}>
                 Context
               </summary>
-              <textarea
-                readOnly
-                value={context || "(no context set)"}
-                rows={5}
+              <div
                 style={{
                   marginTop: "4px",
                   width: "100%",
-                  resize: "vertical",
+                  maxHeight: "110px",
+                  overflowY: "auto",
                   border: "1px solid #d0d0d0",
                   borderRadius: "4px",
                   padding: "8px",
@@ -120,9 +133,56 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                   color: "#333",
                   backgroundColor: "#fafafa",
                   boxSizing: "border-box",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
                 }}
-              />
+              >
+                {context || "(no context set)"}
+              </div>
             </details>
+
+            {/* Instructions */}
+            {instructions.length > 0 && (
+              <details style={{ fontSize: "12px" }}>
+                <summary style={{ cursor: "pointer", color: "#605e5c", userSelect: "none" }}>
+                  Instructions
+                </summary>
+                <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                    {instructions.map((inst) => (
+                      <span key={inst.name} title={inst.description || undefined}>
+                        <Checkbox
+                          label={inst.name}
+                          checked={checkedInstructions.has(inst.name)}
+                          onChange={(_, data) => handleInstructionChange(inst, !!data.checked)}
+                          style={{ gap: 0, fontSize: "12px" }}
+                        />
+                      </span>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      width: "100%",
+                      maxHeight: "110px",
+                      overflowY: "auto",
+                      border: "1px solid #d0d0d0",
+                      borderRadius: "4px",
+                      padding: "8px",
+                      fontSize: "12px",
+                      fontFamily: "Segoe UI, sans-serif",
+                      lineHeight: "1.5",
+                      color: "#333",
+                      backgroundColor: "#fafafa",
+                      boxSizing: "border-box",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {buildInstructionText(instructions, checkedInstructions) || "(no instructions selected)"}
+                  </div>
+                </div>
+              </details>
+            )}
 
             {/* Quick-prompt buttons */}
             {generalButtons.length > 0 && (
@@ -138,34 +198,20 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
               </div>
             )}
 
-            {/* Instructions */}
-            {instructions.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                {instructions.map((inst) => (
-                  <span key={inst.name} title={inst.description || undefined}>
-                    <Checkbox
-                      label={inst.name}
-                      checked={checkedInstructions.has(inst.name)}
-                      onChange={(_, data) => handleInstructionChange(inst, !!data.checked)}
-                      style={{ gap: 0, fontSize: "12px" }}
-                    />
-                  </span>
-                ))}
-              </div>
-            )}
-
             {/* Question */}
+            <div style={{ height: "8px" }} />
             <details open style={{ fontSize: "12px" }}>
               <summary style={{ cursor: "pointer", color: "#605e5c", userSelect: "none" }}>
                 Question
               </summary>
               <textarea
+                ref={questionRef}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                rows={4}
                 style={{
                   marginTop: "4px",
-                  resize: "vertical",
+                  minHeight: "90px",
+                  overflowY: "hidden",
                   border: "1px solid #d0d0d0",
                   borderRadius: "4px",
                   padding: "8px",
@@ -174,6 +220,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                   lineHeight: "1.5",
                   boxSizing: "border-box",
                   width: "100%",
+                  resize: "none",
                 }}
               />
             </details>
@@ -184,17 +231,19 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
 
       {/* ── Ask row ───────────────────────────────────────────── */}
       {(() => {
-        const isDisabled = sendState.status === "loading" || !prompt.trim() || !aiName;
+        const instructionText = buildInstructionText(instructions, checkedInstructions);
+        const isDisabled = sendState.status === "loading" || (!prompt.trim() && !instructionText) || !aiName;
         return (
           <div style={{ display: "flex", alignItems: "center" }}>
             <Button
               appearance="primary"
-              size="small"
+              size="large"
               onClick={send}
               disabled={isDisabled}
-              icon={sendState.status === "loading" ? <Spinner size="tiny" /> : undefined}
+              icon={sendState.status === "loading" ? <Spinner size="small" /> : undefined}
               style={{
-                width: "50%",
+                width: "100%",
+                fontSize: "16px",
                 ...(!isDisabled ? { backgroundColor: "#c50f1f", borderColor: "#c50f1f" } : {}),
               }}
             >

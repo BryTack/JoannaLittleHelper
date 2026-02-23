@@ -14,7 +14,7 @@ function parseParaNumber(text: string): number | null {
   const m =
     text.match(/\[\[\s*[Pp]ara\s+(\d+)\s*\]\]/) ??
     text.match(/[Pp]ara(?:graph)?\s+(\d+)/) ??
-    text.trim().match(/^(\d+)$/);
+    text.trim().replace(/^\D+|\D+$/g, "").match(/^(\d+)$/);
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return n >= 1 ? n : null;
