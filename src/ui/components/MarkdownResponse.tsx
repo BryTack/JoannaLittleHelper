@@ -56,7 +56,7 @@ const BOX: React.CSSProperties = {
   border: "1px solid #d0d0d0",
   borderRadius: "4px",
   padding: "8px 12px",
-  fontSize: "12px",
+  fontSize: "14px",
   fontFamily: "Segoe UI, sans-serif",
   lineHeight: "1.5",
   color: "#333",

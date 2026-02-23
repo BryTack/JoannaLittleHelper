@@ -243,7 +243,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
                   border: "1px solid #d0d0d0",
                   borderRadius: "4px",
                   padding: "8px",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   fontFamily: "Segoe UI, sans-serif",
                   lineHeight: "1.5",
                   boxSizing: "border-box",
