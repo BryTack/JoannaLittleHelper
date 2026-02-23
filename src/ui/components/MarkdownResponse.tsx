@@ -311,7 +311,7 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
           onMouseLeave={() => setHoverId(null)}
           onClick={paraNum ? handleFindParagraph : undefined}
         >
-          Find Paragraph
+          Find paragraph reference
         </div>
 
         <div style={DIVIDER} />
