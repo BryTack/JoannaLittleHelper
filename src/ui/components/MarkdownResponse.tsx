@@ -52,7 +52,7 @@ const DIVIDER: React.CSSProperties = {
   margin: "2px 0",
 };
 
-export function MarkdownResponse({ text }: { text: string }): React.ReactElement {
+export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowUp?: (text: string) => void }): React.ReactElement {
   const [menu,        setMenu]        = useState<MenuState | null>(null);
   const [subOpen,     setSubOpen]     = useState(false);
   const [hoverId,     setHoverId]     = useState<string | null>(null);
@@ -125,6 +125,12 @@ export function MarkdownResponse({ text }: { text: string }): React.ReactElement
     if (!n) return;
     closeMenu();
     await selectParagraph(n - 1);
+  }
+
+  function handleFollowUp() {
+    if (!menu?.text || !onFollowUp) return;
+    closeMenu();
+    onFollowUp(menu.text);
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -231,6 +237,20 @@ export function MarkdownResponse({ text }: { text: string }): React.ReactElement
         >
           Find Paragraph
         </div>
+
+        {onFollowUp && (
+          <>
+            <div style={DIVIDER} />
+            <div
+              style={itemStyle("followup", !hasText)}
+              onMouseEnter={() => { setHoverId("followup"); setSubOpen(false); }}
+              onMouseLeave={() => setHoverId(null)}
+              onClick={hasText ? handleFollowUp : undefined}
+            >
+              Follow up question about this ...
+            </div>
+          </>
+        )}
 
       </div>
     </div>
