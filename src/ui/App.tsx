@@ -217,7 +217,7 @@ export function App(): React.ReactElement {
             instructions={instructions}
           />)}
           {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} docTypeObfuscates={selectedDocType?.obfuscates ?? []} />)}
-          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} instructions={instructions} />)}
+          {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} instructions={[...instructions, ...(selectedDocType?.instructions ?? [])]} />)}
           {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} instructions={instructions} />)}
           {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runReload} />)}
         </div>

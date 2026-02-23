@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import pkg from "../../../package.json";
 const { version } = pkg;
-import { Label, Select, Text, Spinner } from "@fluentui/react-components";
+import { Label, Select, Text, Spinner, Checkbox } from "@fluentui/react-components";
 import { Profile, DocType, GeneralButton, ObfuscateRule, Instruction } from "../../integrations/api/configClient";
 import { QuickButton } from "../components/QuickButton";
 import { getDocumentSummary, DocumentSummary } from "../../integrations/word/documentTools";
@@ -151,23 +151,24 @@ export function TabHome({
                 <Text size={100} style={{ color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px" }}>
                   All documents
                 </Text>
+                {instructions.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px", pointerEvents: "none" }}>
+                    {instructions.map((inst) => (
+                      <span key={inst.name} title={inst.description || undefined}>
+                        <Checkbox
+                          label={inst.name}
+                          checked={inst.default}
+                          onChange={() => {}}
+                          style={{ gap: 0, fontSize: "12px" }}
+                        />
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {generalButtons.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
                     {generalButtons.map((btn) => (
                       <QuickButton key={btn.name} btn={btn} fallbackColour={buttonColour} />
-                    ))}
-                  </div>
-                )}
-                {instructions.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px" }}>
-                    {instructions.map((inst) => (
-                      <span
-                        key={inst.name}
-                        title={`Instruction: ${inst.description || inst.instruction}`}
-                        style={{ fontSize: "12px", padding: "1px 7px", borderRadius: "10px", backgroundColor: "#dde8f5", color: "#1f4e79", cursor: "help" }}
-                      >
-                        {inst.name}
-                      </span>
                     ))}
                   </div>
                 )}
@@ -197,23 +198,24 @@ export function TabHome({
                 {selectedDocType.context && (
                   <Text size={200} style={{ color: "#605e5c", display: "block", marginTop: "2px" }}>{selectedDocType.context}</Text>
                 )}
+                {selectedDocType.instructions.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px", pointerEvents: "none" }}>
+                    {selectedDocType.instructions.map((inst) => (
+                      <span key={inst.name} title={inst.description || undefined}>
+                        <Checkbox
+                          label={inst.name}
+                          checked={inst.default}
+                          onChange={() => {}}
+                          style={{ gap: 0, fontSize: "12px" }}
+                        />
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {selectedDocType.buttons.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
                     {selectedDocType.buttons.map((btn) => (
                       <QuickButton key={btn.name} btn={btn} fallbackColour={buttonColour} />
-                    ))}
-                  </div>
-                )}
-                {selectedDocType.instructions.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px" }}>
-                    {selectedDocType.instructions.map((inst) => (
-                      <span
-                        key={inst.name}
-                        title={`Instruction: ${inst.description || inst.instruction}`}
-                        style={{ fontSize: "12px", padding: "1px 7px", borderRadius: "10px", backgroundColor: "#dde8f5", color: "#1f4e79", cursor: "help" }}
-                      >
-                        {inst.name}
-                      </span>
                     ))}
                   </div>
                 )}
