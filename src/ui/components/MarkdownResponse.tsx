@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { selectOccurrence, highlightMatches, selectParagraph } from "../../integrations/word/documentTools";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkRehype from "remark-rehype";
+import rehypeStringify from "rehype-stringify";
+import { selectOccurrence, highlightMatches, selectParagraph, insertTextAtCursor, insertHtmlAtCursor } from "../../integrations/word/documentTools";
 
 interface MenuState {
   x: number;
@@ -18,6 +22,31 @@ function parseParaNumber(text: string): number | null {
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return n >= 1 ? n : null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractText(node: any): string {
+  if (node.type === "text" || node.type === "inlineCode") return node.value as string;
+  if (node.type === "code") return (node.value as string) + "\n";
+  if (!node.children) return "";
+  const inner = (node.children as any[]).map(extractText).join("");
+  if (node.type === "paragraph" || node.type === "heading") return inner + "\n\n";
+  if (node.type === "listItem") return "• " + inner.trim() + "\n";
+  return inner;
+}
+
+function markdownToText(markdown: string): string {
+  return extractText(unified().use(remarkParse).use(remarkGfm).parse(markdown)).trim();
+}
+
+function markdownToHtml(markdown: string): string {
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkRehype)
+    .use(rehypeStringify)
+    .processSync(markdown)
+    .toString();
 }
 
 const FOLLOW_UP_MENU = [
@@ -160,6 +189,16 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
     await selectParagraph(n - 1);
   }
 
+  async function handleInsertText() {
+    closeMenu();
+    await insertTextAtCursor(markdownToText(text));
+  }
+
+  async function handleInsertFormatted() {
+    closeMenu();
+    await insertHtmlAtCursor(markdownToHtml(text));
+  }
+
   // ── Render ────────────────────────────────────────────────────────────
 
   if (!menu) {
@@ -267,6 +306,42 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
           onClick={paraNum ? handleFindParagraph : undefined}
         >
           Find Paragraph
+        </div>
+
+        <div style={DIVIDER} />
+
+        {/* Insert → submenu */}
+        <div
+          style={{
+            ...itemStyle("insert", false),
+            position: "relative",
+            backgroundColor: (hoverId === "insert" || openSub === "insert") ? "#e8f0fe" : "transparent",
+          }}
+          onMouseEnter={() => { setHoverId("insert"); setOpenSub("insert"); }}
+          onMouseLeave={() => { setHoverId(null); setOpenSub(null); }}
+        >
+          <span>Insert</span>
+          <span style={{ fontSize: "9px", color: "#999" }}>▶</span>
+
+          {openSub === "insert" && (
+            <div style={{ position: "absolute", ...subVert, ...subSide, ...POPUP }}>
+              {(["as plain text", "formatted"] as const).map((label) => {
+                const id = label === "as plain text" ? "insert-text" : "insert-formatted";
+                const handler = label === "as plain text" ? handleInsertText : handleInsertFormatted;
+                return (
+                  <div
+                    key={id}
+                    style={itemStyle(id, false)}
+                    onMouseEnter={() => setHoverId(id)}
+                    onMouseLeave={() => setHoverId(null)}
+                    onClick={handler}
+                  >
+                    {label}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Follow up → category accordion submenu */}

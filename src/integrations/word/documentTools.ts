@@ -201,6 +201,22 @@ export async function selectParagraph(index: number): Promise<boolean> {
   return found;
 }
 
+/** Inserts plain text at the current Word cursor position (or replaces active selection). */
+export async function insertTextAtCursor(text: string): Promise<void> {
+  await Word.run(async (context) => {
+    context.document.getSelection().insertText(text, Word.InsertLocation.replace);
+    await context.sync();
+  });
+}
+
+/** Inserts HTML at the current Word cursor position (or replaces active selection). */
+export async function insertHtmlAtCursor(html: string): Promise<void> {
+  await Word.run(async (context) => {
+    context.document.getSelection().insertHtml(html, Word.InsertLocation.replace);
+    await context.sync();
+  });
+}
+
 /** Removes highlighting from the entire document body. */
 export async function clearHighlights(): Promise<void> {
   await Word.run(async (context) => {
