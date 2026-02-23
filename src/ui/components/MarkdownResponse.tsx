@@ -20,6 +20,36 @@ function parseParaNumber(text: string): number | null {
   return n >= 1 ? n : null;
 }
 
+const FOLLOW_UP_MENU = [
+  { cat: "Clarify", items: [
+    { label: "Explain in simpler terms",  q: "Explain this in simpler terms." },
+    { label: "Give me an example",        q: "Give me an example of this." },
+    { label: "Why is this the case?",     q: "Why is this the case?" },
+    { label: "What does this mean?",      q: "What does this mean?" },
+  ]},
+  { cat: "Explore", items: [
+    { label: "Tell me more",              q: "Tell me more about this." },
+    { label: "What are the implications?",q: "What are the implications of this?" },
+    { label: "What are the alternatives?",q: "What are the alternatives to this?" },
+    { label: "Summarise this",            q: "Summarise this." },
+  ]},
+  { cat: "Document", items: [
+    { label: "Is this in my document?",   q: "Is this mentioned in my document?" },
+    { label: "How does this apply?",      q: "How does this apply to my document?" },
+    { label: "Find similar text",         q: "Is there similar text elsewhere in my document?" },
+  ]},
+  { cat: "Verify", items: [
+    { label: "Is this accurate?",         q: "Is this accurate?" },
+    { label: "What are the risks?",       q: "What are the risks with this?" },
+    { label: "Are there exceptions?",     q: "Are there exceptions to this?" },
+  ]},
+  { cat: "Transform", items: [
+    { label: "Rewrite more formally",     q: "Rewrite this more formally." },
+    { label: "Rewrite more concisely",    q: "Rewrite this more concisely." },
+    { label: "Translate this",            q: "Translate this." },
+  ]},
+] as const;
+
 const BOX: React.CSSProperties = {
   flex: 1,
   overflow: "auto",
@@ -52,11 +82,12 @@ const DIVIDER: React.CSSProperties = {
   margin: "2px 0",
 };
 
-export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowUp?: (text: string) => void }): React.ReactElement {
-  const [menu,        setMenu]        = useState<MenuState | null>(null);
-  const [subOpen,     setSubOpen]     = useState(false);
-  const [hoverId,     setHoverId]     = useState<string | null>(null);
-  const [findState,   setFindState]   = useState<{ text: string; index: number } | null>(null);
+export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowUp?: (prompt: string) => void }): React.ReactElement {
+  const [menu,          setMenu]          = useState<MenuState | null>(null);
+  const [openSub,       setOpenSub]       = useState<string | null>(null);
+  const [openCategory,  setOpenCategory]  = useState<string | null>(null);
+  const [hoverId,       setHoverId]       = useState<string | null>(null);
+  const [findState,     setFindState]     = useState<{ text: string; index: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on outside mousedown or Escape
@@ -76,7 +107,8 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
 
   function closeMenu() {
     setMenu(null);
-    setSubOpen(false);
+    setOpenSub(null);
+    setOpenCategory(null);
     setHoverId(null);
   }
 
@@ -84,7 +116,8 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
     e.preventDefault();
     const sel = window.getSelection()?.toString() ?? "";
     setMenu({ x: e.clientX, y: e.clientY, text: sel });
-    setSubOpen(false);
+    setOpenSub(null);
+    setOpenCategory(null);
     setHoverId(null);
   }
 
@@ -127,12 +160,6 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
     await selectParagraph(n - 1);
   }
 
-  function handleFollowUp() {
-    if (!menu?.text || !onFollowUp) return;
-    closeMenu();
-    onFollowUp(menu.text);
-  }
-
   // ── Render ────────────────────────────────────────────────────────────
 
   if (!menu) {
@@ -143,14 +170,19 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
     );
   }
 
-  const hasText     = !!menu.text.trim();
-  const paraNum     = parseParaNumber(menu.text);
-  const nearRight   = menu.x + 250 > window.innerWidth;
-  const menuTop     = Math.min(menu.y, window.innerHeight - 120);
+  const hasText    = !!menu.text.trim();
+  const paraNum    = parseParaNumber(menu.text);
+  const nearRight  = menu.x + 250 > window.innerWidth;
+  const nearBottom = menu.y > window.innerHeight * 0.6;
+  const menuTop    = Math.min(menu.y, window.innerHeight - 135);
 
   const subSide: React.CSSProperties = nearRight
     ? { right: "100%", left: "auto" }
     : { left: "100%" };
+
+  const subVert: React.CSSProperties = nearBottom
+    ? { bottom: 0, top: "auto" }
+    : { top: 0 };
 
   function itemStyle(id: string, disabled: boolean): React.CSSProperties {
     return {
@@ -179,7 +211,7 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
         {/* Copy */}
         <div
           style={itemStyle("copy", !hasText)}
-          onMouseEnter={() => { setHoverId("copy"); setSubOpen(false); }}
+          onMouseEnter={() => { setHoverId("copy"); setOpenSub(null); }}
           onMouseLeave={() => setHoverId(null)}
           onClick={hasText ? handleCopy : undefined}
         >
@@ -193,17 +225,16 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
           style={{
             ...itemStyle("find", !hasText),
             position: "relative",
-            // Keep highlighted while submenu is open, even when mouse moves to submenu items
-            backgroundColor: (hoverId === "find" || subOpen) && hasText ? "#e8f0fe" : "transparent",
+            backgroundColor: (hoverId === "find" || openSub === "find") && hasText ? "#e8f0fe" : "transparent",
           }}
-          onMouseEnter={() => { setHoverId("find"); if (hasText) setSubOpen(true); }}
-          onMouseLeave={() => { setHoverId(null); setSubOpen(false); }}
+          onMouseEnter={() => { setHoverId("find"); if (hasText) setOpenSub("find"); }}
+          onMouseLeave={() => { setHoverId(null); setOpenSub(null); }}
         >
           <span>Find</span>
           {hasText && <span style={{ fontSize: "9px", color: "#999" }}>▶</span>}
 
-          {subOpen && hasText && (
-            <div style={{ position: "absolute", top: 0, ...subSide, ...POPUP }}>
+          {openSub === "find" && hasText && (
+            <div style={{ position: "absolute", ...subVert, ...subSide, ...POPUP }}>
               {(["First", "Next", "All"] as const).map((label) => {
                 const id = `find-${label}`;
                 const handler =
@@ -231,23 +262,98 @@ export function MarkdownResponse({ text, onFollowUp }: { text: string; onFollowU
         {/* Find Paragraph */}
         <div
           style={itemStyle("findpara", !paraNum)}
-          onMouseEnter={() => { setHoverId("findpara"); setSubOpen(false); }}
+          onMouseEnter={() => { setHoverId("findpara"); setOpenSub(null); }}
           onMouseLeave={() => setHoverId(null)}
           onClick={paraNum ? handleFindParagraph : undefined}
         >
           Find Paragraph
         </div>
 
+        {/* Follow up → category accordion submenu */}
         {onFollowUp && (
           <>
             <div style={DIVIDER} />
             <div
-              style={itemStyle("followup", !hasText)}
-              onMouseEnter={() => { setHoverId("followup"); setSubOpen(false); }}
-              onMouseLeave={() => setHoverId(null)}
-              onClick={hasText ? handleFollowUp : undefined}
+              style={{
+                ...itemStyle("followup", !hasText),
+                position: "relative",
+                backgroundColor: (hoverId === "followup" || openSub === "followup") && hasText ? "#e8f0fe" : "transparent",
+              }}
+              onMouseEnter={() => { setHoverId("followup"); if (hasText) setOpenSub("followup"); }}
+              onMouseLeave={() => { setHoverId(null); setOpenSub(null); setOpenCategory(null); }}
             >
-              Follow up question about this ...
+              <span>Follow up</span>
+              {hasText && <span style={{ fontSize: "9px", color: "#999" }}>▶</span>}
+
+              {openSub === "followup" && hasText && (
+                <div style={{ position: "absolute", ...subVert, ...subSide, ...POPUP, minWidth: "180px", maxHeight: `${window.innerHeight * 0.75}px`, overflowY: "auto" }}>
+
+                  {/* My own question */}
+                  <div
+                    style={itemStyle("fu-own", false)}
+                    onMouseEnter={() => { setHoverId("fu-own"); setOpenCategory(null); }}
+                    onMouseLeave={() => setHoverId(null)}
+                    onClick={() => { closeMenu(); onFollowUp(`About this: "${menu.text}"\n`); }}
+                  >
+                    My own question...
+                  </div>
+
+                  <div style={DIVIDER} />
+
+                  {/* Categories with inline-expanding questions */}
+                  {FOLLOW_UP_MENU.map(({ cat, items }) => {
+                    const catId = `fu-${cat.toLowerCase()}`;
+                    const expanded = openCategory === cat;
+                    return (
+                      <div
+                        key={cat}
+                        onMouseEnter={() => { setHoverId(catId); setOpenCategory(cat); }}
+                        onMouseLeave={() => { setHoverId(null); setOpenCategory(null); }}
+                      >
+                        {/* Category header */}
+                        <div style={{
+                          padding: "5px 12px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "8px",
+                          cursor: "pointer",
+                          color: "#222",
+                          backgroundColor: expanded ? "#e8f0fe" : "transparent",
+                          whiteSpace: "nowrap",
+                        }}>
+                          <span>{cat}</span>
+                          <span style={{ fontSize: "9px", color: "#999" }}>{expanded ? "▼" : "▶"}</span>
+                        </div>
+
+                        {/* Inline questions */}
+                        {expanded && (
+                          <div style={{ backgroundColor: "#f5f5f5", borderTop: "1px solid #eee", borderBottom: "1px solid #eee" }}>
+                            {items.map(({ label, q }, i) => {
+                              const qId = `${catId}-${i}`;
+                              return (
+                                <div
+                                  key={qId}
+                                  style={{
+                                    ...itemStyle(qId, false),
+                                    paddingLeft: "20px",
+                                    fontSize: "11px",
+                                  }}
+                                  onMouseEnter={() => setHoverId(qId)}
+                                  onMouseLeave={() => setHoverId(null)}
+                                  onClick={() => { closeMenu(); onFollowUp(`About this: "${menu.text}"\n${q}`); }}
+                                >
+                                  {label}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}

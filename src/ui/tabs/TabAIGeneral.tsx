@@ -262,9 +262,9 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
 
       {/* ── Response ──────────────────────────────────────────── */}
       {sendState.status === "done" && (
-        <MarkdownResponse text={sendState.text} onFollowUp={(selected) => {
+        <MarkdownResponse text={sendState.text} onFollowUp={(prompt) => {
           setInputCollapsed(false);
-          setPrompt(`About this: "${selected}"\n`);
+          setPrompt(prompt);
           requestAnimationFrame(() => {
             const el = questionRef.current;
             if (!el) return;
