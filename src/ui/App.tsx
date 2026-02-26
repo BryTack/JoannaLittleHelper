@@ -13,9 +13,13 @@ import { TabObfuscate } from "./tabs/TabObfuscate";
 import { TabAIDocument } from "./tabs/TabAI";
 import { TabAIGeneral } from "./tabs/TabAIGeneral";
 import { TabConfig } from "./tabs/TabConfig";
-import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType, fetchInstructions, Instruction, fetchObfuscates, ObfuscateRule } from "../integrations/api/configClient";
+import { fetchConfigValidation, ConfigState, fetchProfiles, Profile, fetchGeneralButtons, GeneralButton, fetchDocTypes, DocType, fetchInstructions, Instruction, fetchObfuscates, ObfuscateRule, fetchSettings } from "../integrations/api/configClient";
 
-type TabId = "home" | "config" | "obfuscate" | "ai-document" | "ai-general";
+type TabId = "home" | "config" | "obfuscate" | "redact" | "mask" | "ai-document" | "ai-general";
+
+// Maps operator value → the tab ID that shows it
+const OPERATOR_TAB: Record<string, TabId> = { replace: "obfuscate", redact: "redact", mask: "mask" };
+const ANON_TABS = new Set<TabId>(["obfuscate", "redact", "mask"]);
 
 export function App(): React.ReactElement {
   const [configVisible, setConfigVisible] = useState(false);
@@ -35,6 +39,7 @@ export function App(): React.ReactElement {
 
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [globalObfuscates, setGlobalObfuscates] = useState<ObfuscateRule[]>([]);
+  const [anonymizeOperator, setAnonymizeOperator] = useState("replace");
 
   // Document summary refresh
   const [summaryKey, setSummaryKey] = useState(0);
@@ -68,6 +73,9 @@ export function App(): React.ReactElement {
     fetchObfuscates()
       .then(setGlobalObfuscates)
       .catch(() => {});
+    fetchSettings()
+      .then((s) => setAnonymizeOperator(s.anonymizeOperator))
+      .catch(() => {});
   }, [runValidation]);
 
   useEffect(() => {
@@ -100,6 +108,9 @@ export function App(): React.ReactElement {
     fetchObfuscates()
       .then(setGlobalObfuscates)
       .catch(() => {});
+    fetchSettings()
+      .then((s) => setAnonymizeOperator(s.anonymizeOperator))
+      .catch(() => {});
   }, [runValidation]);
 
   // Keep ref in sync so Office callbacks can read current tab without stale closure
@@ -110,6 +121,18 @@ export function App(): React.ReactElement {
       setSummaryKey((k) => k + 1);
     }
   }, [activeTab]);
+
+  // When the operator changes, switch the active tab to the matching anonymisation tab
+  // — but only if the user is already on one of the three anonymisation tabs.
+  // Uses the ref so this effect only fires on operator changes, not on every tab switch.
+  useEffect(() => {
+    if (ANON_TABS.has(activeTabRef.current)) {
+      const target = OPERATOR_TAB[anonymizeOperator] ?? "obfuscate";
+      if (activeTabRef.current !== target) {
+        setActiveTab(target);
+      }
+    }
+  }, [anonymizeOperator]);
 
   // Register Office document selection-change handler once on mount.
   // DocumentSelectionChanged fires after every edit (cursor moves with each keystroke),
@@ -165,7 +188,9 @@ export function App(): React.ReactElement {
             style={{ flex: 1 }}
           >
             <Tab value="home">Home</Tab>
-            <Tab value="obfuscate">Obfuscate</Tab>
+            {anonymizeOperator === "replace" && <Tab value="obfuscate">Obfuscate</Tab>}
+            {anonymizeOperator === "redact"  && <Tab value="redact">Redact</Tab>}
+            {anonymizeOperator === "mask"    && <Tab value="mask">Mask</Tab>}
             <Tab value="ai-document">AI Document</Tab>
             <Tab value="ai-general">AI General</Tab>
             {configVisible && <Tab value="config">Config</Tab>}
@@ -216,10 +241,12 @@ export function App(): React.ReactElement {
             globalObfuscates={globalObfuscates}
             instructions={instructions}
           />)}
-          {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} docTypeObfuscates={selectedDocType?.obfuscates ?? []} />)}
+          {tabPane("obfuscate", <TabObfuscate isActive={activeTab === "obfuscate"} docTypeObfuscates={selectedDocType?.obfuscates ?? []} operator="replace" />)}
+          {tabPane("redact",    <TabObfuscate isActive={activeTab === "redact"}    docTypeObfuscates={selectedDocType?.obfuscates ?? []} operator="redact" />)}
+          {tabPane("mask",      <TabObfuscate isActive={activeTab === "mask"}      docTypeObfuscates={selectedDocType?.obfuscates ?? []} operator="mask" />)}
           {tabPane("ai-document", <TabAIDocument selectedProfile={selectedProfile} selectedDocTypeContext={selectedDocType?.context} docTypeObfuscates={selectedDocType?.obfuscates ?? []} generalButtons={documentButtons} buttonColour={buttonColour} instructions={[...instructions, ...(selectedDocType?.instructions ?? [])]} />)}
           {tabPane("ai-general", <TabAIGeneral selectedProfile={selectedProfile} generalButtons={generalButtons} buttonColour={buttonColour} instructions={instructions} />)}
-          {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runReload} />)}
+          {configVisible && tabPane("config", <TabConfig configState={configState} onRevalidate={runReload} onOperatorChange={setAnonymizeOperator} />)}
         </div>
     </FluentProvider>
   );

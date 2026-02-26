@@ -144,7 +144,7 @@ def _remove_overlaps(results):
     return kept
 
 
-def _anonymize_consistent(text, results, custom_replacements=None):
+def _anonymize_consistent(text, results, custom_replacements=None, operator="replace"):
     """
     Replace detected entities with consistent labels per type.
 
@@ -154,7 +154,13 @@ def _anonymize_consistent(text, results, custom_replacements=None):
     custom_replacements: dict mapping entity_type -> replacement string.
       - "mask"         -> replace each character with *  (same length as original)
       - any other str  -> use that string as a fixed label (no counter)
-      - absent / None  -> standard <ENTITY_N> numbered labels
+      - absent / None  -> fall through to operator
+
+    operator: global operator applied when no custom_replacement matches.
+      - "replace" -> <ENTITY_N> numbered labels (default)
+      - "redact"  -> "" (entity removed entirely)
+      - "mask"    -> "*" * len(original)
+      - "hash"    -> first 12 hex chars of SHA-256 of original
 
     Returns (anonymised_text, entities) where entities is a list of
     {type, original, label, score} — one entry per occurrence, in document order.
@@ -180,7 +186,11 @@ def _anonymize_consistent(text, results, custom_replacements=None):
                 label_map[key] = "*" * len(original)
             elif repl:
                 label_map[key] = repl
-            else:
+            elif operator == "redact":
+                label_map[key] = " " * len(original)
+            elif operator == "mask":
+                label_map[key] = "*" * len(original)
+            else:  # "replace" (default)
                 counters[r.entity_type] = counters.get(r.entity_type, 0) + 1
                 label_map[key] = f"<{r.entity_type}_{counters[r.entity_type]}>"
         entity_info.append({
@@ -220,6 +230,7 @@ class Handler(BaseHTTPRequestHandler):
             text = body.get("text", "")
             language = body.get("language", "en")
             custom_rules = body.get("custom_rules", [])
+            operator = body.get("operator", "replace")
 
             # Build replacement map for custom rules that specify a replacement string
             custom_replacements = {
@@ -233,7 +244,7 @@ class Handler(BaseHTTPRequestHandler):
             # Apply custom rules via re — no NLP artifacts required
             results.extend(_apply_custom_rules(text, custom_rules, SCORE_THRESHOLD))
 
-            anonymised_text, entities = _anonymize_consistent(text, results, custom_replacements)
+            anonymised_text, entities = _anonymize_consistent(text, results, custom_replacements, operator)
 
             self._send_json(200, {"text": anonymised_text, "entities": entities})
 

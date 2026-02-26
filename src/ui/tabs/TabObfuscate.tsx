@@ -25,6 +25,16 @@ function uniqueEntities(entities: EntityInfo[]): EntityInfo[] {
   return Array.from(seen.values());
 }
 
+/** Deduplicate entities by (type, original) — for mask mode where labels are non-unique stars. */
+function uniqueEntitiesByOriginal(entities: EntityInfo[]): EntityInfo[] {
+  const seen = new Map<string, EntityInfo>();
+  for (const e of entities) {
+    const key = `${e.type}\x00${e.original}`;
+    if (!seen.has(key)) seen.set(key, e);
+  }
+  return Array.from(seen.values());
+}
+
 /**
  * Returns the exact pixel offset of the character at `position` within a
  * textarea, accounting for word-wrap. Creates a hidden mirror div that
@@ -116,9 +126,10 @@ function visibleParagraphIndex(
 interface TabObfuscateProps {
   isActive: boolean;
   docTypeObfuscates: ObfuscateRule[];
+  operator?: string;
 }
 
-export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps): React.ReactElement {
+export function TabObfuscate({ isActive, docTypeObfuscates, operator = "replace" }: TabObfuscateProps): React.ReactElement {
   const [state, setState] = useState<State>({ status: "idle" });
   const [isPending, setIsPending] = useState(false);
   const [splitPct, setSplitPct] = useState(70);
@@ -152,7 +163,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
     (async () => {
       try {
         const { text: bodyText, isSelection } = await getTextForAnonymization();
-        const result = await anonymize(bodyText, "en", docTypeObfuscates);
+        const result = await anonymize(bodyText, "en", docTypeObfuscates, operator);
         if (!cancelled) {
           obfuscatedParasRef.current = result.text.split(/\r\n|\r|\n/);
           setState({ status: "done", text: result.text, entities: result.entities, isSelection });
@@ -172,7 +183,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
         }
       }
     })();
-  }, [docTypeObfuscates]);
+  }, [docTypeObfuscates, operator]);
 
   // Run and listen only while the Obfuscate tab is active
   useEffect(() => {
@@ -370,6 +381,9 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
   const pendingBg     = isPending ? "#fff0f0" : "#fafafa";
   const pendingBorder = isPending ? "#f0c0c0" : "#d0d0d0";
 
+  const actionLabel   = operator === "redact" ? "Redact" : operator === "mask" ? "Mask" : "Obfuscate";
+  const unactionLabel = operator === "redact" ? "Unredact" : operator === "mask" ? "Unmask" : "Unobfuscate";
+
   return (
     <div
       ref={containerRef}
@@ -444,7 +458,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
         <div style={{ width: "32px", height: "2px", background: "#b0b0b0", borderRadius: "1px" }} />
       </div>
 
-      {/* Bottom pane — obfuscation details */}
+      {/* Bottom pane — details panel, content varies by operator */}
       <div style={{
         flex: 1,
         minHeight: 0,
@@ -454,58 +468,126 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
         overflow: "hidden",
       }}>
         <div style={{ height: "100%", overflow: "auto", padding: "4px 0" }}>
-          {state.status === "done" && uniqueEntities(state.entities).length === 0 && sessionEntries.length === 0 && (
-            <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
-              No PII detected
-            </div>
+
+          {/* ── Replace: label → original → score, click to jump ── */}
+          {operator === "replace" && (
+            <>
+              {state.status === "done" && uniqueEntities(state.entities).length === 0 && sessionEntries.length === 0 && (
+                <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
+                  No PII detected
+                </div>
+              )}
+              {state.status === "done" && uniqueEntities(state.entities).map((e) => (
+                <div
+                  key={e.label}
+                  onClick={() => handleEntityClick(e.label)}
+                  onMouseEnter={() => setHoveredLabel(e.label)}
+                  onMouseLeave={() => setHoveredLabel(null)}
+                  onContextMenu={(ev) => { ev.preventDefault(); setEntityMenu({ x: ev.clientX, y: ev.clientY, kind: "presidio", entity: e }); }}
+                  style={{
+                    display: "flex", gap: "8px", padding: "2px 8px",
+                    fontSize: "11px", fontFamily: "Segoe UI, sans-serif", lineHeight: "1.6",
+                    cursor: "pointer",
+                    background: hoveredLabel === e.label ? "#e8e8e8" : "transparent",
+                    borderRadius: "2px",
+                  }}
+                >
+                  <span style={{ color: "#b00", fontWeight: 600, minWidth: "110px", flexShrink: 0 }}>
+                    {e.label}
+                  </span>
+                  <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {e.original}
+                  </span>
+                  <span style={{ color: "#999", flexShrink: 0 }}>
+                    {Math.round(e.score * 100)}%
+                  </span>
+                </div>
+              ))}
+            </>
           )}
 
-          {state.status === "done" && uniqueEntities(state.entities).map((e) => (
-            <div
-              key={e.label}
-              onClick={() => handleEntityClick(e.label)}
-              onMouseEnter={() => setHoveredLabel(e.label)}
-              onMouseLeave={() => setHoveredLabel(null)}
-              onContextMenu={(ev) => { ev.preventDefault(); setEntityMenu({ x: ev.clientX, y: ev.clientY, kind: "presidio", entity: e }); }}
-              style={{
-                display: "flex",
-                gap: "8px",
-                padding: "2px 8px",
-                fontSize: "11px",
-                fontFamily: "Segoe UI, sans-serif",
-                lineHeight: "1.6",
-                cursor: "pointer",
-                background: hoveredLabel === e.label ? "#e8e8e8" : "transparent",
-                borderRadius: "2px",
-              }}
-            >
-              <span style={{ color: "#b00", fontWeight: 600, minWidth: "110px", flexShrink: 0 }}>
-                {e.label}
-              </span>
-              <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {e.original}
-              </span>
-              <span style={{ color: "#999", flexShrink: 0 }}>
-                {Math.round(e.score * 100)}%
-              </span>
-            </div>
-          ))}
+          {/* ── Redact: entity type counts only — original deliberately hidden ── */}
+          {operator === "redact" && (() => {
+            const counts: Record<string, number> = {};
+            if (state.status === "done") {
+              for (const e of state.entities) counts[e.type] = (counts[e.type] || 0) + 1;
+            }
+            const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+            return (
+              <>
+                {state.status === "done" && entries.length === 0 && sessionEntries.length === 0 && (
+                  <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
+                    Nothing redacted
+                  </div>
+                )}
+                {entries.map(([type, count]) => (
+                  <div
+                    key={type}
+                    style={{
+                      display: "flex", gap: "8px", padding: "2px 8px",
+                      fontSize: "11px", fontFamily: "Segoe UI, sans-serif", lineHeight: "1.6",
+                    }}
+                  >
+                    <span style={{ color: "#b00", fontWeight: 600, minWidth: "160px", flexShrink: 0 }}>
+                      {type}
+                    </span>
+                    <span style={{ color: "#666" }}>
+                      {count} {count === 1 ? "occurrence" : "occurrences"}
+                    </span>
+                  </div>
+                ))}
+              </>
+            );
+          })()}
 
-          {sessionEntries.length > 0 && state.status === "done" && uniqueEntities(state.entities).length > 0 && (
+          {/* ── Mask: type badge → original (verification) → score, click to jump ── */}
+          {operator === "mask" && (
+            <>
+              {state.status === "done" && uniqueEntitiesByOriginal(state.entities).length === 0 && sessionEntries.length === 0 && (
+                <div style={{ fontSize: "11px", color: "#999", padding: "4px 8px" }}>
+                  No PII detected
+                </div>
+              )}
+              {state.status === "done" && uniqueEntitiesByOriginal(state.entities).map((e) => (
+                <div
+                  key={`${e.type}\x00${e.original}`}
+                  onClick={() => handleEntityClick(e.label)}
+                  onMouseEnter={() => setHoveredLabel(e.label)}
+                  onMouseLeave={() => setHoveredLabel(null)}
+                  onContextMenu={(ev) => { ev.preventDefault(); setEntityMenu({ x: ev.clientX, y: ev.clientY, kind: "presidio", entity: e }); }}
+                  style={{
+                    display: "flex", gap: "8px", padding: "2px 8px",
+                    fontSize: "11px", fontFamily: "Segoe UI, sans-serif", lineHeight: "1.6",
+                    cursor: "pointer",
+                    background: hoveredLabel === e.label ? "#e8e8e8" : "transparent",
+                    borderRadius: "2px",
+                  }}
+                >
+                  <span style={{ color: "#777", fontWeight: 600, minWidth: "110px", flexShrink: 0, fontSize: "10px", letterSpacing: "0.02em" }}>
+                    {e.type}
+                  </span>
+                  <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {e.original}
+                  </span>
+                  <span style={{ color: "#999", flexShrink: 0 }}>
+                    {Math.round(e.score * 100)}%
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ── Common: manual session entries, shown for all operators ── */}
+          {state.status === "done" && sessionEntries.length > 0 && state.entities.length > 0 && (
             <div style={{ borderTop: "1px solid #e8e8e8", margin: "2px 0" }} />
           )}
-
           {sessionEntries.map((term) => (
             <div
               key={`session:${term}`}
               onContextMenu={(ev) => { ev.preventDefault(); setEntityMenu({ x: ev.clientX, y: ev.clientY, kind: "manual", term }); }}
               style={{
-                display: "flex",
-                gap: "8px",
-                padding: "2px 8px",
-                fontSize: "11px",
-                fontFamily: "Segoe UI, sans-serif",
-                lineHeight: "1.6",
+                display: "flex", gap: "8px", padding: "2px 8px",
+                fontSize: "11px", fontFamily: "Segoe UI, sans-serif", lineHeight: "1.6",
               }}
             >
               <span style={{ color: "#888", fontWeight: 600, minWidth: "110px", flexShrink: 0, fontStyle: "italic" }}>
@@ -519,6 +601,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
               </span>
             </div>
           ))}
+
         </div>
       </div>
 
@@ -541,7 +624,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {(["Copy", "Unobfuscate"] as const).map((item) => (
+          {["Copy", unactionLabel].map((item) => (
             <div
               key={item}
               onMouseEnter={() => setHoveredEntityMenuItem(item)}
@@ -580,7 +663,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates }: TabObfuscateProps)
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {(["Copy", "Obfuscate"] as const).map((item) => (
+          {["Copy", actionLabel].map((item) => (
             <div
               key={item}
               onMouseEnter={() => setHoveredMenuItem(item)}

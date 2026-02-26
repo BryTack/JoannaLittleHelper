@@ -79,12 +79,12 @@ export function applySessionTerms(text: string): string {
 }
 
 /** Sends text to the local Presidio service and returns the anonymised version. */
-export async function anonymize(text: string, language = "en", extraRules: ObfuscateRule[] = []): Promise<AnonymizeResult> {
+export async function anonymize(text: string, language = "en", extraRules: ObfuscateRule[] = [], operator = "replace"): Promise<AnonymizeResult> {
   const custom_rules = [...(await getCustomRules()), ...extraRules];
   const response = await fetch(`${PRESIDIO_URL}/anonymize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, language, custom_rules }),
+    body: JSON.stringify({ text, language, custom_rules, operator }),
   });
 
   if (!response.ok) {

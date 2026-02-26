@@ -1,16 +1,32 @@
-import React from "react";
-import { Button, Spinner } from "@fluentui/react-components";
-import { ConfigState } from "../../integrations/api/configClient";
+import React, { useState, useEffect } from "react";
+import { Button, Spinner, Select, Field } from "@fluentui/react-components";
+import { ConfigState, fetchSettings, updateAnonymizeOperator } from "../../integrations/api/configClient";
 
 interface TabConfigProps {
   configState: ConfigState;
   onRevalidate: () => void;
+  onOperatorChange: (op: string) => void;
 }
 
 const LEVEL_ICON: Record<string, string> = { info: "ℹ", warning: "⚠", error: "✗" };
 const LEVEL_COLOR: Record<string, string> = { info: "#0078d4", warning: "#c07f00", error: "#d13438" };
 
-export function TabConfig({ configState, onRevalidate }: TabConfigProps): React.ReactElement {
+export function TabConfig({ configState, onRevalidate, onOperatorChange }: TabConfigProps): React.ReactElement {
+  const [operator, setOperator] = useState("replace");
+
+  useEffect(() => {
+    fetchSettings()
+      .then((s) => setOperator(s.anonymizeOperator))
+      .catch(() => {});
+  }, []);
+
+  function handleOperatorChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const op = e.target.value;
+    setOperator(op);
+    onOperatorChange(op);
+    updateAnonymizeOperator(op).catch(() => {});
+  }
+
   return (
     <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
 
@@ -88,6 +104,14 @@ export function TabConfig({ configState, onRevalidate }: TabConfigProps): React.
           )}
         </>
       )}
+
+      <Field label="Anonymisation method">
+        <Select value={operator} onChange={handleOperatorChange}>
+          <option value="replace">Obfuscate — label entities (e.g. &lt;PERSON_1&gt;)</option>
+          <option value="redact">Redact — hide with spaces</option>
+          <option value="mask">Mask — replace with asterisks</option>
+        </Select>
+      </Field>
 
     </div>
   );

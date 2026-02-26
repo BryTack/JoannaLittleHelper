@@ -527,6 +527,26 @@ async function validate() {
     }
   }
 
+  // ── GROUP 8: SETTINGS ─────────────────────────────────────────────────────
+
+  // Step 44: <Settings> must exist with AnonymizeOperator attribute
+  const VALID_OPERATORS = ["replace", "redact", "mask"];
+  if (config.JLHConfig.Settings === undefined || config.JLHConfig.Settings === "") {
+    config.JLHConfig.Settings = { "@_AnonymizeOperator": "replace" };
+    dirty = true;
+    messages.push({ level: "info", text: "<Settings> section added to config" });
+  } else {
+    if (config.JLHConfig.Settings["@_AnonymizeOperator"] === undefined) {
+      config.JLHConfig.Settings["@_AnonymizeOperator"] = "replace";
+      dirty = true;
+    } else if (!VALID_OPERATORS.includes(config.JLHConfig.Settings["@_AnonymizeOperator"])) {
+      messages.push({
+        level: "warning",
+        text: `Settings > AnonymizeOperator: "${config.JLHConfig.Settings["@_AnonymizeOperator"]}" is not valid (must be replace, redact, mask, or hash)`,
+      });
+    }
+  }
+
   // ── WRITE BACK IF MODIFIED ────────────────────────────────────────────────
 
   if (dirty) {
@@ -698,4 +718,37 @@ function readInstructions() {
   }
 }
 
-module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, readInstructions, CONFIG_FILE, CONFIG_DIR };
+// Return Settings object { anonymizeOperator }
+function readSettings() {
+  if (!fs.existsSync(CONFIG_FILE)) return { anonymizeOperator: "replace" };
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    const op = config.JLHConfig?.Settings?.["@_AnonymizeOperator"] || "replace";
+    return { anonymizeOperator: op };
+  } catch {
+    return { anonymizeOperator: "replace" };
+  }
+}
+
+// Update a settings key in config.xml
+function writeSettings(key, value) {
+  if (!fs.existsSync(CONFIG_FILE)) return;
+  try {
+    const xmlText = fs.readFileSync(CONFIG_FILE, "utf8");
+    const config = parser.parse(xmlText);
+    if (!config.JLHConfig) config.JLHConfig = {};
+    if (!config.JLHConfig.Settings || config.JLHConfig.Settings === "") {
+      config.JLHConfig.Settings = {};
+    }
+    if (key === "AnonymizeOperator") {
+      config.JLHConfig.Settings["@_AnonymizeOperator"] = value;
+    }
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + builder.build(config);
+    fs.writeFileSync(CONFIG_FILE, xml, "utf8");
+  } catch {
+    // silently ignore write errors
+  }
+}
+
+module.exports = { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, readInstructions, readSettings, writeSettings, CONFIG_FILE, CONFIG_DIR };

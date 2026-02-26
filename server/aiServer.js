@@ -7,7 +7,7 @@
  */
 
 const http = require("http");
-const { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, readInstructions, CONFIG_FILE } = require("./configValidator");
+const { validate, readConfig, readProfiles, readGeneralButtons, readDocTypes, readObfuscates, readInstructions, readSettings, writeSettings, CONFIG_FILE } = require("./configValidator");
 
 const PORT = 3003;
 const ALLOWED_ORIGIN = "https://localhost:3000";
@@ -86,7 +86,7 @@ const PATTERNS = {
 
 const server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
@@ -161,6 +161,30 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && req.url === "/config/instructions") {
     const instructions = readInstructions();
     sendJson(res, 200, { instructions });
+    return;
+  }
+
+  // GET /config/settings — return current settings
+  if (req.method === "GET" && req.url === "/config/settings") {
+    sendJson(res, 200, readSettings());
+    return;
+  }
+
+  // PUT /config/settings — update a setting
+  if (req.method === "PUT" && req.url === "/config/settings") {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { anonymizeOperator } = JSON.parse(body);
+        if (anonymizeOperator !== undefined) {
+          writeSettings("AnonymizeOperator", anonymizeOperator);
+        }
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+    });
     return;
   }
 

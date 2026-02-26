@@ -80,6 +80,25 @@ export async function fetchInstructions(): Promise<Instruction[]> {
   return data.instructions;
 }
 
+export interface Settings {
+  anonymizeOperator: string;
+}
+
+export async function fetchSettings(): Promise<Settings> {
+  const res = await fetch(`${AI_SERVER}/config/settings`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json() as Promise<Settings>;
+}
+
+export async function updateAnonymizeOperator(op: string): Promise<void> {
+  const res = await fetch(`${AI_SERVER}/config/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ anonymizeOperator: op }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
 export interface ConfigMessage {
   level: "info" | "warning" | "error";
   text: string;
