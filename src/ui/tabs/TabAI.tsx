@@ -150,6 +150,11 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "6px", boxSizing: "border-box" }}>
 
+      {/* ── Hint ──────────────────────────────────────────────── */}
+      <div style={{ fontSize: "11px", color: "#999", fontStyle: "italic" }}>
+        AI never sees your original names — they are replaced before sending
+      </div>
+
       {/* ── Collapsible input section ─────────────────────────── */}
       <div style={{ borderBottom: "1px solid #e0e0e0", paddingBottom: "6px" }}>
 

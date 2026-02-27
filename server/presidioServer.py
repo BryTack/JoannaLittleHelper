@@ -24,6 +24,39 @@ from presidio_anonymizer import AnonymizerEngine
 # Step 3: score threshold — detections below this are discarded
 SCORE_THRESHOLD = 0.4
 
+# Friendly short labels used in replacement tokens — <Name_1>, <Phone_1>, etc.
+ENTITY_FRIENDLY_LABEL = {
+    "PERSON":            "Name",
+    "PHONE_NUMBER":      "Phone",
+    "EMAIL_ADDRESS":     "Email",
+    "LOCATION":          "Location",
+    "DATE_TIME":         "Date",
+    "CREDIT_CARD":       "Card_No",
+    "IBAN_CODE":         "IBAN",
+    "IP_ADDRESS":        "IP",
+    "URL":               "URL",
+    "AGE":               "Age",
+    "NRP":               "NRP",
+    "CRYPTO":            "Crypto",
+    "MEDICAL_LICENSE":   "Med_ID",
+    "US_BANK_NUMBER":    "Account_No",
+    "US_DRIVER_LICENSE": "Driving_Licence",
+    "US_ITIN":           "Tax_ID",
+    "US_PASSPORT":       "Passport",
+    "US_SSN":            "SSN",
+    "UK_NHS":            "NHS_No",
+    "UK_NINO":           "NI_No",
+    "UK_POSTCODE":       "Postcode",
+    "UK_SORT_CODE":      "Sort_Code",
+    "IN_PAN":            "PAN",
+    "IN_AADHAAR":        "Aadhaar",
+    "SG_NRIC_FIN":       "NRIC",
+    "AU_ABN":            "ABN",
+    "AU_ACN":            "ACN",
+    "AU_TFN":            "TFN",
+    "AU_MEDICARE":       "Medicare",
+}
+
 # ── Build analyzer ────────────────────────────────────────────────────────────
 analyzer = AnalyzerEngine()
 
@@ -192,7 +225,8 @@ def _anonymize_consistent(text, results, custom_replacements=None, operator="rep
                 label_map[key] = "*" * len(original)
             else:  # "replace" (default)
                 counters[r.entity_type] = counters.get(r.entity_type, 0) + 1
-                label_map[key] = f"<{r.entity_type}_{counters[r.entity_type]}>"
+                friendly = ENTITY_FRIENDLY_LABEL.get(r.entity_type, r.entity_type)
+                label_map[key] = f"<{friendly}_{counters[r.entity_type]}>"
         entity_info.append({
             "type": r.entity_type,
             "original": original,

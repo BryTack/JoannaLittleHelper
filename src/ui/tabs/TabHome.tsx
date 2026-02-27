@@ -144,6 +144,9 @@ export function TabHome({
                 <option key={dt.name} value={dt.name}>{dt.name}{dt.description ? `: ${dt.description}` : ""}</option>
               ))}
             </Select>
+            <div style={{ fontSize: "11px", color: "#999", fontStyle: "italic" }}>
+              Select a document type first — it tailors AI questions and anonymisation rules
+            </div>
 
             {/* ── All documents ─────────────────────────── */}
             {(generalButtons.length > 0 || instructions.length > 0 || globalObfuscates.length > 0) && (

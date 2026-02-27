@@ -13,7 +13,7 @@ type SendState =
   | { status: "done"; text: string }
   | { status: "error"; message: string };
 
-const TEST_PROMPT = "";
+const TEST_PROMPT = ""; 
 
 function buildInstructionText(instructions: Instruction[], checked: Set<string>): string {
   return instructions
@@ -122,6 +122,11 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "6px", boxSizing: "border-box" }}>
+
+      {/* ── Hint ──────────────────────────────────────────────── */}
+      <div style={{ fontSize: "11px", color: "#999", fontStyle: "italic" }}>
+        General questions not linked to your document — drafting, research, or advice
+      </div>
 
       {/* ── Collapsible input section ─────────────────────────── */}
       <div style={{ borderBottom: "1px solid #e0e0e0", paddingBottom: "6px" }}>

@@ -35,6 +35,42 @@ function uniqueEntitiesByOriginal(entities: EntityInfo[]): EntityInfo[] {
   return Array.from(seen.values());
 }
 
+const ENTITY_FRIENDLY: Record<string, string> = {
+  PERSON:            "Name",
+  PHONE_NUMBER:      "Phone number",
+  EMAIL_ADDRESS:     "Email address",
+  LOCATION:          "Location",
+  DATE_TIME:         "Date/time",
+  CREDIT_CARD:       "Credit card",
+  IBAN_CODE:         "IBAN",
+  IP_ADDRESS:        "IP address",
+  URL:               "Web address",
+  AGE:               "Age",
+  NRP:               "Nationality/politics",
+  CRYPTO:            "Crypto address",
+  MEDICAL_LICENSE:   "Medical licence",
+  US_BANK_NUMBER:    "Bank account",
+  US_DRIVER_LICENSE: "Driving licence",
+  US_ITIN:           "Tax ID",
+  US_PASSPORT:       "Passport",
+  US_SSN:            "Social security no.",
+  UK_NHS:            "NHS number",
+  UK_NINO:           "National Insurance no.",
+  UK_POSTCODE:       "Postcode",
+  UK_SORT_CODE:      "Sort code",
+  IN_PAN:            "Indian PAN",
+  IN_AADHAAR:        "Aadhaar number",
+  SG_NRIC_FIN:       "Singapore NRIC/FIN",
+  AU_ABN:            "Australian ABN",
+  AU_ACN:            "Australian ACN",
+  AU_TFN:            "Tax file number",
+  AU_MEDICARE:       "Medicare number",
+};
+
+function friendlyType(type: string): string {
+  return ENTITY_FRIENDLY[type] ?? type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /**
  * Returns the exact pixel offset of the character at `position` within a
  * textarea, accounting for word-wrap. Creates a hidden mirror div that
@@ -529,7 +565,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates, operator = "replace"
                     }}
                   >
                     <span style={{ color: "#b00", fontWeight: 600, minWidth: "160px", flexShrink: 0 }}>
-                      {type}
+                      {friendlyType(type)}
                     </span>
                     <span style={{ color: "#666" }}>
                       {count} {count === 1 ? "occurrence" : "occurrences"}
@@ -564,7 +600,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates, operator = "replace"
                   }}
                 >
                   <span style={{ color: "#777", fontWeight: 600, minWidth: "110px", flexShrink: 0, fontSize: "10px", letterSpacing: "0.02em" }}>
-                    {e.type}
+                    {friendlyType(e.type)}
                   </span>
                   <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {e.original}
@@ -610,7 +646,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates, operator = "replace"
         <div
           style={{
             position: "fixed",
-            top: entityMenu.y,
+            top: entityMenu.y + 72 > window.innerHeight ? entityMenu.y - 72 : entityMenu.y,
             left: entityMenu.x,
             zIndex: 9999,
             background: "#ffffff",
@@ -649,7 +685,7 @@ export function TabObfuscate({ isActive, docTypeObfuscates, operator = "replace"
         <div
           style={{
             position: "fixed",
-            top: contextMenu.y,
+            top: contextMenu.y + 72 > window.innerHeight ? contextMenu.y - 72 : contextMenu.y,
             left: contextMenu.x,
             zIndex: 9999,
             background: "#ffffff",

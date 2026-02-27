@@ -51,7 +51,7 @@ const PATTERNS = {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
+        max_tokens: 4096,
         ...(systemPrompt ? { system: systemPrompt } : {}),
         messages: [{ role: "user", content: userMessage }],
       }),
@@ -118,7 +118,7 @@ const STREAMING_PATTERNS = {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
+        max_tokens: 4096,
         stream: true,
         ...(systemPrompt ? { system: systemPrompt } : {}),
         messages: [{ role: "user", content: userMessage }],
