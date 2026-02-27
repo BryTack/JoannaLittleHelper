@@ -3,12 +3,13 @@ import { Button, Spinner, Checkbox } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
 import { MarkdownResponse } from "../components/MarkdownResponse";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
-import { sendMessage } from "../../integrations/api/aiClient";
+import { streamMessage } from "../../integrations/api/aiClient";
 import { Profile, GeneralButton, Instruction } from "../../integrations/api/configClient";
 
 type SendState =
   | { status: "idle" }
   | { status: "loading" }
+  | { status: "streaming"; text: string }
   | { status: "done"; text: string }
   | { status: "error"; message: string };
 
@@ -37,6 +38,8 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [askPulse, setAskPulse] = useState(false);
   const questionRef = useRef<HTMLTextAreaElement>(null);
+  const accumulatedRef = useRef("");
+  const rafRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     const el = questionRef.current;
@@ -80,10 +83,30 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
     if (!fullPrompt || !aiName) return;
     setSendState({ status: "loading" });
     setInputCollapsed(true);
+    accumulatedRef.current = "";
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     try {
-      const text = await sendMessage(fullPrompt, aiName, context);
-      setSendState({ status: "done", text });
+      setSendState({ status: "streaming", text: "" });
+      await streamMessage(fullPrompt, aiName, (chunk) => {
+        accumulatedRef.current += chunk;
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null;
+            setSendState({ status: "streaming", text: accumulatedRef.current });
+          });
+        }
+      }, context);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      setSendState({ status: "done", text: accumulatedRef.current });
     } catch (err) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       const isConnectionError =
         msg.toLowerCase().includes("failed to fetch") ||
@@ -234,7 +257,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
       {/* ── Ask row ───────────────────────────────────────────── */}
       {(() => {
         const instructionText = buildInstructionText(instructions, checkedInstructions);
-        const isDisabled = sendState.status === "loading" || (!prompt.trim() && !instructionText) || !aiName;
+        const isDisabled = sendState.status === "loading" || sendState.status === "streaming" || (!prompt.trim() && !instructionText) || !aiName;
         return (
           <div style={{ display: "flex", alignItems: "center" }}>
             <Button
@@ -250,7 +273,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
                 ...(!isDisabled ? { backgroundColor: "#c50f1f", borderColor: "#c50f1f" } : {}),
               }}
             >
-              {sendState.status === "loading" ? "Asking…" : "Ask"}
+              {sendState.status === "loading" ? "Asking…" : sendState.status === "streaming" ? "Receiving…" : "Ask"}
             </Button>
           </div>
         );
@@ -264,8 +287,8 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
       )}
 
       {/* ── Response ──────────────────────────────────────────── */}
-      {sendState.status === "done" && (
-        <MarkdownResponse text={sendState.text} onFollowUp={(prompt) => {
+      {(sendState.status === "streaming" || sendState.status === "done") && (
+        <MarkdownResponse text={sendState.text} onFollowUp={sendState.status === "done" ? (prompt) => {
           setInputCollapsed(false);
           setPrompt(prompt);
           requestAnimationFrame(() => {
@@ -274,7 +297,7 @@ export function TabAIGeneral({ selectedProfile, generalButtons, buttonColour, in
             el.focus();
             el.setSelectionRange(el.value.length, el.value.length);
           });
-        }} />
+        } : undefined} />
       )}
 
     </div>

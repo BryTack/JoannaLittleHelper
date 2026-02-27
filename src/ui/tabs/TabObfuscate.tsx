@@ -91,7 +91,7 @@ async function scrollWordToParagraph(idx: number): Promise<void> {
       paragraphs.load("text");
       await context.sync();
       const safeIdx = Math.min(Math.max(idx, 0), paragraphs.items.length - 1);
-      paragraphs.items[safeIdx].select(Word.SelectionMode.Select);
+      paragraphs.items[safeIdx].select(Word.SelectionMode.select);
       await context.sync();
     });
   } catch {

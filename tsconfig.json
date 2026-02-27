@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "moduleResolution": "node",
     "experimentalDecorators": true,
     "jsx": "react",
     "noEmitOnError": true,

@@ -3,7 +3,7 @@ import { Button, Spinner, Checkbox } from "@fluentui/react-components";
 import { QuickButton } from "../components/QuickButton";
 import { MarkdownResponse } from "../components/MarkdownResponse";
 import { ChevronDown16Regular, ChevronRight16Regular } from "@fluentui/react-icons";
-import { sendMessage } from "../../integrations/api/aiClient";
+import { streamMessage } from "../../integrations/api/aiClient";
 import { Profile, GeneralButton, ObfuscateRule, Instruction } from "../../integrations/api/configClient";
 import { getTextForAnonymization, getSelectedText } from "../../integrations/word/documentTools";
 import { anonymize } from "../../integrations/api/presidioClient";
@@ -11,6 +11,7 @@ import { anonymize } from "../../integrations/api/presidioClient";
 type SendState =
   | { status: "idle" }
   | { status: "loading" }
+  | { status: "streaming"; text: string }
   | { status: "done"; text: string }
   | { status: "error"; message: string };
 
@@ -56,6 +57,8 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
   const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const [isSelectionOnly, setIsSelectionOnly] = useState(false);
   const [askPulse, setAskPulse] = useState(false);
+  const accumulatedRef = useRef("");
+  const rafRef = useRef<number | null>(null);
   const [checkedInstructions, setCheckedInstructions] = useState<Set<string>>(
     () => new Set(instructions.filter((i) => i.default).map((i) => i.name))
   );
@@ -104,13 +107,33 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
     if (!fullPrompt || !aiName) return;
     setSendState({ status: "loading" });
     setInputCollapsed(true);
+    accumulatedRef.current = "";
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     try {
       const { text: bodyText } = await getTextForAnonymization();
       const result = await anonymize(bodyText, "en", docTypeObfuscates);
       const documentText = result.text;
-      const text = await sendMessage(fullPrompt, aiName, combinedContext, documentText);
-      setSendState({ status: "done", text });
+      setSendState({ status: "streaming", text: "" });
+      await streamMessage(fullPrompt, aiName, (chunk) => {
+        accumulatedRef.current += chunk;
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null;
+            setSendState({ status: "streaming", text: accumulatedRef.current });
+          });
+        }
+      }, combinedContext, documentText);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      setSendState({ status: "done", text: accumulatedRef.current });
     } catch (err) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       const isConnectionError =
         msg.toLowerCase().includes("failed to fetch") ||
@@ -269,7 +292,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
       {/* ── Ask + checkbox row ────────────────────────────────── */}
       {(() => {
         const instructionText = buildInstructionText(instructions, checkedInstructions);
-        const isDisabled = sendState.status === "loading" || (!prompt.trim() && !instructionText) || !aiName;
+        const isDisabled = sendState.status === "loading" || sendState.status === "streaming" || (!prompt.trim() && !instructionText) || !aiName;
         return (
           <div style={{ display: "flex", alignItems: "center" }}>
             <Button
@@ -285,7 +308,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
                 ...(!isDisabled ? { backgroundColor: "#c50f1f", borderColor: "#c50f1f" } : {}),
               }}
             >
-              {sendState.status === "loading" ? "Asking…" : "Ask"}
+              {sendState.status === "loading" ? "Asking…" : sendState.status === "streaming" ? "Receiving…" : "Ask"}
             </Button>
           </div>
         );
@@ -299,8 +322,8 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
       )}
 
       {/* ── Response ──────────────────────────────────────────── */}
-      {sendState.status === "done" && (
-        <MarkdownResponse text={sendState.text} onFollowUp={(prompt) => {
+      {(sendState.status === "streaming" || sendState.status === "done") && (
+        <MarkdownResponse text={sendState.text} onFollowUp={sendState.status === "done" ? (prompt) => {
           setInputCollapsed(false);
           setPrompt(prompt);
           requestAnimationFrame(() => {
@@ -309,7 +332,7 @@ export function TabAIDocument({ selectedProfile, selectedDocTypeContext, docType
             el.focus();
             el.setSelectionRange(el.value.length, el.value.length);
           });
-        }} />
+        } : undefined} />
       )}
 
     </div>
